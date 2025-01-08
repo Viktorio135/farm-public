@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Управление пользователями</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        #search {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        #search:focus {
+            border-color: #007bff;
+        }
+        #totalUsers {
+            font-weight: bold;
+            color: #007bff;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: #fff;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+            cursor: pointer; /* Изменение курсора при наведении */
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        a:hover {
+            color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Пользователи</h1>
+    <input type="text" id="search" onkeyup="searchUsers()" placeholder="Поиск по ID или имени пользователя...">
+    <p>Общее количество пользователей: <span id="totalUsers">{{ users|length }}</span></p>
+    <table id="usersTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Имя пользователя</th>
+                <th>Баланс</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+                <tr data-href="{% url 'panel:user_detail' user.user_id %}">
+                    <td>{{ user.user_id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.balance }} руб.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        // Поиск пользователей
+        function searchUsers() {
+            const input = document.getElementById("search");
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById("usersTable");
+            const tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) { // Начинаем с 1, чтобы пропустить заголовок
+                const tdId = tr[i].getElementsByTagName("td")[0]; // Колонка ID
+                const tdUsername = tr[i].getElementsByTagName("td")[1]; // Колонка Username
+                let match = false;
+
+                if (tdId && tdUsername) {
+                    const idText = tdId.textContent || tdId.innerText;
+                    const usernameText = tdUsername.textContent || tdUsername.innerText;
+
+                    // Поиск по ID или имени пользователя
+                    if (idText.toUpperCase().indexOf(filter) > -1 || usernameText.toUpperCase().indexOf(filter) > -1) {
+                        match = true;
+                    }
+                }
+
+                // Показываем или скрываем строку
+                if (match) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+
+        // Переход на страницу пользователя при клике на строку
+        document.addEventListener("DOMContentLoaded", function() {
+            const rows = document.querySelectorAll("#usersTable tbody tr");
+            rows.forEach(row => {
+                row.addEventListener("click", function() {
+                    const url = row.getAttribute("data-href");
+                    if (url) {
+                        window.location.href = url;
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

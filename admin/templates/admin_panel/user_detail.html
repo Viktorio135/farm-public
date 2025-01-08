@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Детали пользователя</title>
+</head>
+<body>
+    <h1>Детали пользователя: {{ user.username }}</h1>
+    <p><strong>ID:</strong> {{ user.user_id }}</p>
+    <p><strong>Телефон:</strong> {{ user.phone_number }}</p>
+    <p><strong>Баланс:</strong> {{ user.balance }} руб.</p>
+    <p><strong>Последняя активность:</strong> {{ user.last_activity }}</p>
+
+    <h2>Выполненные задания</h2>
+    <ul>
+        {% for task in completed_tasks %}
+            <li>
+                {{ task.task.channel_name }} - {{ task.task.reward }} руб.
+                <br>
+                <strong>Статус:</strong> Одобрено
+                <br>
+                <strong>Скриншот:</strong> <a href="{{ task.screenshot }}" target="_blank">Просмотр</a>
+            </li>
+        {% empty %}
+            <li>Нет выполненных заданий.</li>
+        {% endfor %}
+    </ul>
+
+    <h2>Задания на рассмотрении</h2>
+    <ul>
+        {% for task in pending_tasks %}
+            <li>
+                {{ task.task.channel_name }} - {{ task.task.reward }} руб.
+                <br>
+                <strong>Статус:</strong> На рассмотрении
+                <br>
+                <strong>Скриншот:</strong> <a href="{{ task.screenshot }}" target="_blank">Просмотр</a>
+            </li>
+        {% empty %}
+            <li>Нет заданий на рассмотрении.</li>
+        {% endfor %}
+    </ul>
+
+    <h2>Отклоненные задания</h2>
+    <ul>
+        {% for task in rejected_tasks %}
+            <li>
+                {{ task.task.channel_name }} - {{ task.task.reward }} руб.
+                <br>
+                <strong>Статус:</strong> Отклонено
+                <br>
+                <strong>Причина:</strong> {{ task.feedback }}
+                <br>
+                <strong>Скриншот:</strong> <a href="{{ task.screenshot }}" target="_blank">Просмотр</a>
+            </li>
+        {% empty %}
+            <li>Нет отклоненных заданий.</li>
+        {% endfor %}
+    </ul>
+
+    <a href="{% url 'panel:user_list' %}">Назад к списку пользователей</a>
+</body>
+</html>

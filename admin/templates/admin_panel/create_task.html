@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Создание задания</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .form-container label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .form-container input,
+        .form-container select,
+        .form-container textarea,
+        .form-container input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .form-container button {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .form-container button:hover {
+            background-color: #218838;
+        }
+        .error {
+            color: red;
+            font-size: 14px;
+            margin-top: -10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Создание задания</h1>
+    <div class="form-container">
+        <form method="post" action="{% url 'panel:create_task' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <label for="channel_name">Название канала:</label>
+            <input type="text" id="channel_name" name="channel_name" required>
+            {% if errors.channel_name %}
+                <div class="error">{{ errors.channel_name }}</div>
+            {% endif %}
+
+            <label for="channel_link">Ссылка на канал:</label>
+            <input type="url" id="channel_link" name="channel_link" required>
+            {% if errors.channel_link %}
+                <div class="error">{{ errors.channel_link }}</div>
+            {% endif %}
+
+            <label for="required_subscriptions">Количество нужных выполнений:</label>
+            <input type="number" id="required_subscriptions" name="required_subscriptions" required>
+            {% if errors.required_subscriptions %}
+                <div class="error">{{ errors.required_subscriptions }}</div>
+            {% endif %}
+
+            <label for="reward">Вознаграждение:</label>
+            <input type="number" step="0.01" id="reward" name="reward" required>
+            {% if errors.reward %}
+                <div class="error">{{ errors.reward }}</div>
+            {% endif %}
+
+            <label for="example">Пример задания (изображение):</label>
+            <input type="file" id="example" name="example" accept="image/*" required>
+            {% if errors.example %}
+                <div class="error">{{ errors.example }}</div>
+            {% endif %}
+
+            {% if errors.non_field_errors %}
+                <div class="error">{{ errors.non_field_errors }}</div>
+            {% endif %}
+
+            <button type="submit">Создать задание</button>
+        </form>
+    </div>
+</body>
+</html>

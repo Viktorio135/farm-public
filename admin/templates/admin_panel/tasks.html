@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Управление заданиями</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        #search {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        #search:focus {
+            border-color: #007bff;
+        }
+        .summary {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .summary div {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            flex: 1;
+            margin: 0 10px;
+        }
+        .summary div span {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: #fff;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+            cursor: pointer;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        a:hover {
+            color: #0056b3;
+        }
+        .archive-btn {
+            background-color: #6c757d;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .archive-btn:hover {
+            background-color: #5a6268;
+        }
+        .create-btn {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-right: 10px;
+        }
+        
+        .create-btn:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <h1>Задания</h1>
+    <input type="text" id="search" onkeyup="searchTasks()" placeholder="Поиск по названию канала...">
+    
+    <div class="summary">
+        <div>
+            <span>{{ active_tasks }}</span>
+            <p>Активные задания</p>
+        </div>
+        <div>
+            <span>{{ archived_tasks }}</span>
+            <p>Задания в архиве</p>
+        </div>
+        <div>
+            <span>{{ total_tasks }}</span>
+            <p>Всего заданий</p>
+        </div>
+    </div>
+
+    <button class="archive-btn" onclick="window.location.href=''">Архив</button>
+    <button class="create-btn" onclick="window.location.href='{% url "panel:create_task" %}'">Создать задание</button>
+    <table id="tasksTable">
+        <thead>
+            <tr>
+                <th>Название канала</th>
+                <th>Ссылка</th>
+                <th>Время добавления</th>
+                <th>Нужно выполнений</th>
+                <th>Выполнено</th>
+                <th>Отклонено</th>
+                <th>Ожидают оценки</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+                <tr data-href="">
+                    <td>{{ task.channel_name }}</td>
+                    <td><a href="{{ task.channel_link }}" target="_blank">{{ task.channel_link }}</a></td>
+                    <td>{{ task.start_time }}</td>
+                    <td>{{ task.required_subscriptions }}</td>
+                    <td>{{ task.completed_count }}</td>
+                    <td>{{ task.rejected_count }}</td>
+                    <td>{{ task.pending_count }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        // Поиск заданий
+        function searchTasks() {
+            const input = document.getElementById("search");
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById("tasksTable");
+            const tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) { // Начинаем с 1, чтобы пропустить заголовок
+                const tdChannelName = tr[i].getElementsByTagName("td")[0]; // Колонка названия канала
+                let match = false;
+
+                if (tdChannelName) {
+                    const channelNameText = tdChannelName.textContent || tdChannelName.innerText;
+
+                    // Поиск по названию канала
+                    if (channelNameText.toUpperCase().indexOf(filter) > -1) {
+                        match = true;
+                    }
+                }
+
+                // Показываем или скрываем строку
+                if (match) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+
+        // Переход на страницу задания при клике на строку
+        document.addEventListener("DOMContentLoaded", function() {
+            const rows = document.querySelectorAll("#tasksTable tbody tr");
+            rows.forEach(row => {
+                row.addEventListener("click", function() {
+                    const url = row.getAttribute("data-href");
+                    if (url) {
+                        window.location.href = url;
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
