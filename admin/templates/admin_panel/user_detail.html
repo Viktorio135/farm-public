@@ -2,61 +2,160 @@
 <html>
 <head>
     <title>Детали пользователя</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .user-info {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto 20px;
+        }
+        .user-info p {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        .user-info p strong {
+            color: #007bff;
+        }
+        .tasks-section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto 20px;
+        }
+        .tasks-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .tasks-section ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .tasks-section ul li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
+        .tasks-section ul li strong {
+            color: #007bff;
+        }
+        .tasks-section ul li a {
+            color: #28a745;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .tasks-section ul li a:hover {
+            color: #218838;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #007bff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .back-link:hover {
+            color: #0056b3;
+        }
+    </style>
 </head>
 <body>
     <h1>Детали пользователя: {{ user.username }}</h1>
-    <p><strong>ID:</strong> {{ user.user_id }}</p>
-    <p><strong>Телефон:</strong> {{ user.phone_number }}</p>
-    <p><strong>Баланс:</strong> {{ user.balance }} руб.</p>
-    <p><strong>Последняя активность:</strong> {{ user.last_activity }}</p>
 
-    <h2>Выполненные задания</h2>
-    <ul>
-        {% for task in completed_tasks %}
-            <li>
-                {{ task.task.channel_name }} - {{ task.task.reward }} руб.
-                <br>
-                <strong>Статус:</strong> Одобрено
-                <br>
-                <strong>Скриншот:</strong> <a href="{{ task.screenshot }}" target="_blank">Просмотр</a>
-            </li>
-        {% empty %}
-            <li>Нет выполненных заданий.</li>
-        {% endfor %}
-    </ul>
+    <div class="user-info">
+        <p><strong>ID:</strong> {{ user.user_id }}</p>
+        <p><strong>Телефон:</strong> {{ user.phone_number }}</p>
+        <p><strong>Баланс:</strong> {{ user.balance }} руб.</p>
+        <p><strong>Последняя активность:</strong> {{ user.last_activity }}</p>
+    </div>
 
-    <h2>Задания на рассмотрении</h2>
-    <ul>
-        {% for task in pending_tasks %}
-            <li>
-                {{ task.task.channel_name }} - {{ task.task.reward }} руб.
-                <br>
-                <strong>Статус:</strong> На рассмотрении
-                <br>
-                <strong>Скриншот:</strong> <a href="{{ task.screenshot }}" target="_blank">Просмотр</a>
-            </li>
-        {% empty %}
-            <li>Нет заданий на рассмотрении.</li>
-        {% endfor %}
-    </ul>
+    <div class="tasks-section">
+        <h2>Выполненные задания</h2>
+        <ul>
+            {% for task in completed_tasks %}
+                <li>
+                    {{ task.task.channel_name }} - {{ task.task.reward }} руб.
+                    <br>
+                    <strong>Статус:</strong> Одобрено
+                    <br>
+                    <strong>Скриншот:</strong> <a href="{{ task.screenshot.url }}" target="_blank">Просмотр</a>
+                </li>
+            {% empty %}
+                <li>Нет выполненных заданий.</li>
+            {% endfor %}
+        </ul>
+    </div>
 
-    <h2>Отклоненные задания</h2>
-    <ul>
-        {% for task in rejected_tasks %}
-            <li>
-                {{ task.task.channel_name }} - {{ task.task.reward }} руб.
-                <br>
-                <strong>Статус:</strong> Отклонено
-                <br>
-                <strong>Причина:</strong> {{ task.feedback }}
-                <br>
-                <strong>Скриншот:</strong> <a href="{{ task.screenshot }}" target="_blank">Просмотр</a>
-            </li>
-        {% empty %}
-            <li>Нет отклоненных заданий.</li>
-        {% endfor %}
-    </ul>
+    <div class="tasks-section">
+        <h2>Задания на рассмотрении</h2>
+        <ul>
+            {% for task in pending_tasks %}
+                <li>
+                    {{ task.task.channel_name }} - {{ task.task.reward }} руб.
+                    <br>
+                    <strong>Статус:</strong> На рассмотрении
+                    <br>
+                    <strong>Скриншот:</strong> <a href="{{ task.screenshot.url }}" target="_blank">Просмотр</a>
+                </li>
+            {% empty %}
+                <li>Нет заданий на рассмотрении.</li>
+            {% endfor %}
+        </ul>
+    </div>
 
-    <a href="{% url 'panel:user_list' %}">Назад к списку пользователей</a>
+    <div class="tasks-section">
+        <h2>Отклоненные задания</h2>
+        <ul>
+            {% for task in rejected_tasks %}
+                <li>
+                    {{ task.task.channel_name }} - {{ task.task.reward }} руб.
+                    <br>
+                    <strong>Статус:</strong> Отклонено
+                    <br>
+                    <strong>Причина:</strong> {{ task.feedback }}
+                    <br>
+                    <strong>Скриншот:</strong> <a href="{{ task.screenshot.url }}" target="_blank">Просмотр</a>
+                </li>
+            {% empty %}
+                <li>Нет отклоненных заданий.</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="tasks-section">
+        <h2>Пропущенные задания</h2>
+        <ul>
+            {% for task in missed_tasks %}
+                <li>
+                    {{ task.task.channel_name }} - {{ task.task.reward }} руб.
+                    <br>
+                    <strong>Статус:</strong> Отклонено
+                    <br>
+                    <strong>Причина:</strong> {{ task.feedback }}
+                    <br>
+                    <strong>Скриншот:</strong> <a href="{{ task.screenshot.url }}" target="_blank">Просмотр</a>
+                </li>
+            {% empty %}
+                <li>Нет отклоненных заданий.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <a href="{% url 'panel:user_list' %}" class="back-link">Назад к списку пользователей</a>
 </body>
 </html>

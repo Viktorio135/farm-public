@@ -20,45 +20,56 @@ class User(models.Model):
     def __str__(self):
         return self.username
 
+
+class Channel(models.Model):
+    name = models.CharField(max_length=200)
+    chat_id = models.IntegerField()
+
+    def __str__(self):
+        return self.name[:50]+'...'
+
+
 class Task(models.Model):
 
     STATUS_CHOISE = {
-        (1, 'active'),
-        (0, 'archive')
+        ('1', 'active'),
+        ('0', 'archive')
     }
 
-    channel_name = models.CharField(max_length=255)
-    channel_link = models.CharField(max_length=255)
+    name = models.CharField(max_length=255)
+    link = models.CharField(max_length=255)
     status = models.CharField(
         max_length=1,
         choices=STATUS_CHOISE,
-        default=1,  # Опционально: можно указать значение по умолчанию
+        default=1,
     )
-    required_subscriptions = models.IntegerField(default=1)
+    required_subscriptions = models.IntegerField(blank=True, null=True)
     reward = models.FloatField()
+    channels = models.ForeignKey(Channel, blank=True, on_delete=models.CASCADE)
     example = models.ImageField(upload_to=examples_upload_path)
     start_time = models.DateTimeField(auto_now_add=True)
-    end_time = models.DateTimeField(blank=True, null=True)
+    end_time = models.DateTimeField()
 
     def __str__(self):
-        return self.channel_name
+        return self.name
 
 class UserTask(models.Model):
 
     STATUS_CHOISE = {
         'pending': 'Ожидает проверки',
         'approved': 'Выполнено',
-        'rejected': 'Отклонено'
+        'rejected': 'Отклонено',
+        'missed': 'Пропущенные'
     }
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=STATUS_CHOISE, default='pending')  # pending, approved, rejected
-    screenshot = models.ImageField(upload_to=confirmation_upload_path)
+    status = models.CharField(max_length=20, choices=STATUS_CHOISE, default='pending')
+    screenshot = models.ImageField(upload_to=confirmation_upload_path, null=True, blank=True)
     feedback = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.task.channel_name}"
+        return f"{self.user.username} - {self.task.name}"
 
 class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

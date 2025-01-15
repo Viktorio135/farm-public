@@ -112,15 +112,15 @@
     
     <div class="summary">
         <div>
-            <span>{{ active_tasks }}</span>
+            <span>{{ active_tasks_count }}</span>
             <p>Активные задания</p>
         </div>
         <div>
-            <span>{{ archived_tasks }}</span>
+            <span>{{ archived_tasks_count }}</span>
             <p>Задания в архиве</p>
         </div>
         <div>
-            <span>{{ total_tasks }}</span>
+            <span>{{ total_tasks_count }}</span>
             <p>Всего заданий</p>
         </div>
     </div>
@@ -133,6 +133,7 @@
                 <th>Название канала</th>
                 <th>Ссылка</th>
                 <th>Время добавления</th>
+                <th>Время окончания</th>
                 <th>Нужно выполнений</th>
                 <th>Выполнено</th>
                 <th>Отклонено</th>
@@ -145,6 +146,7 @@
                     <td>{{ task.channel_name }}</td>
                     <td><a href="{{ task.channel_link }}" target="_blank">{{ task.channel_link }}</a></td>
                     <td>{{ task.start_time }}</td>
+                    <td>{{ task.end_time }}</td>
                     <td>{{ task.required_subscriptions }}</td>
                     <td>{{ task.completed_count }}</td>
                     <td>{{ task.rejected_count }}</td>

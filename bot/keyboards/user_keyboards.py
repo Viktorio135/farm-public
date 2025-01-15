@@ -10,13 +10,13 @@ def main_menu_keyboard():
         resize_keyboard=True
     )
 
-def tasks_keyboard(tasks):
+def channels_keyboard(channels):
     keyboard = InlineKeyboardMarkup(row_width=1, inline_keyboard=[
         [InlineKeyboardButton(
-            text=f"{task['channel_name']} ({task['reward']} руб.)",
-            callback_data=f"task_{task['id']}"
+            text=f"{channel['name']}",
+            callback_data=f"channel_{channel['id']}"
         )]
-        for task in tasks
+        for channel in channels
     ])
 
     return keyboard

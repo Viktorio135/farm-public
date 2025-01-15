@@ -1,16 +1,18 @@
 from datetime import timezone
 from rest_framework import serializers
-from .models import Task
+from .models import Task, Channel
 
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = [
-            'channel_name',
-            'channel_link',
+            'name',
+            'link',
             'required_subscriptions',
             'reward',
+            'end_time',
             'example',
+            'channels',
         ]
 
     def validate_required_subscriptions(self, value):
@@ -24,3 +26,4 @@ class TaskSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("Вознаграждение должно быть больше 0.")
         return value
+

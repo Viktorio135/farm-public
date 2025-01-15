@@ -1,6 +1,6 @@
 # api/serializers.py
 from rest_framework import serializers
-from panel.models import User, Task, UserTask
+from panel.models import User, Task, UserTask, Channel
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -15,4 +15,10 @@ class TaskSerializer(serializers.ModelSerializer):
 class UserTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserTask
+        fields = '__all__'
+
+
+class ChannelsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Channel
         fields = '__all__'

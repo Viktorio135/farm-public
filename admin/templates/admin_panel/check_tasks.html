@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Проверка заданий</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .form-container label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .form-container select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .tasks-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .tasks-table th,
+        .tasks-table td {
+            padding: 12px 15px;
+            text-align: left;
+        }
+        .tasks-table th {
+            background-color: #007bff;
+            color: #fff;
+            font-weight: bold;
+        }
+        .tasks-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .tasks-table tr:hover {
+            background-color: #f1f1f1;
+            cursor: pointer; /* Изменение курсора при наведении */
+        }
+        .tasks-table a {
+            color: #007bff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .tasks-table a:hover {
+            color: #0056b3;
+        }
+        .no-tasks {
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Проверка заданий</h1>
+    <div class="form-container">
+        <label for="channel">Выберите канал:</label>
+        <select id="channel" name="channel">
+            <option value="" selected>Все каналы</option>
+            {% for channel in channels %}
+                <option value="{{ channel.id }}">{{ channel.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div id="tasks-container">
+        <table class="tasks-table" id="tasks-table">
+            <thead>
+                <tr>
+                    <th>Название задания</th>
+                    <th>Основной канал</th>
+                    <th>Ссылка на канал</th>
+                    <th>User id</th>
+                    <th>Username</th>
+                </tr>
+            </thead>
+            <tbody id="tasks-list">
+                {% for completed_task in user_tasks %}
+                    <tr data-task-id="{{ completed_task.id }}" data-channel-id="{{ completed_task.task.channels.id }}">
+                        <td>{{ completed_task.task.name }}</td>
+                        <td>{{ completed_task.task.channels.name }}</td>
+                        <td><a href="{{ completed_task.task.link }}" target="_blank">{{ completed_task.task.link }}</a></td>
+                        <td>{{ completed_task.user.user_id }}</td>
+                        <td>@{{ completed_task.user.username }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p id="no-tasks-message" class="no-tasks" style="display: none;">Нет заданий для выбранного канала.</p>
+    </div>
+
+    <script>
+        // Функция для фильтрации заданий
+        function filterTasks(channelId) {
+            const tasks = document.querySelectorAll('#tasks-list tr');
+            let hasVisibleTasks = false;
+
+            tasks.forEach(task => {
+                const taskChannelId = task.getAttribute('data-channel-id');
+
+                // Если канал не выбран или задание принадлежит выбранному каналу
+                if (!channelId || taskChannelId === channelId) {
+                    task.style.display = '';
+                    hasVisibleTasks = true;
+                } else {
+                    task.style.display = 'none';
+                }
+            });
+
+            // Показываем или скрываем сообщение "Нет заданий"
+            const noTasksMessage = document.getElementById('no-tasks-message');
+            noTasksMessage.style.display = hasVisibleTasks ? 'none' : 'block';
+        }
+
+        // Обработчик изменения выбора канала
+        document.getElementById('channel').addEventListener('change', function() {
+            const channelId = this.value;
+            filterTasks(channelId);
+        });
+
+        // Инициализация: показываем все задания при загрузке страницы
+        filterTasks('');
+
+        // Обработчик клика по строке таблицы
+        document.querySelectorAll('#tasks-list tr').forEach(row => {
+            row.addEventListener('click', function() {
+                const taskId = this.getAttribute('data-task-id');
+                if (taskId) {
+                    // Перенаправляем на страницу с деталями задания
+                    window.location.href = `/panel/tasks/check_task/${taskId}/`;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
