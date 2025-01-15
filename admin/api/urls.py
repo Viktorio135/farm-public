@@ -10,4 +10,5 @@ urlpatterns = [
     path('tasks/', views.TaskListView.as_view(), name='task_list'),
     path("usertasks/send_confirmation/", views.SendConfirmationView.as_view(), name='send_confirmation'),
     path('usertasks/', views.UserTaskView.as_view(), name='usertasks'),
+    path('channels/get/', views.ChannelsListView.as_view(), name='get_channels'),
 ]

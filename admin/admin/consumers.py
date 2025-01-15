@@ -1,9 +1,10 @@
 # consumers.py
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
-import asyncio
+from .queues import response_queue
 
-response_queue = asyncio.Queue()
+
+
 
 
 class NotificationConsumer(AsyncWebsocketConsumer):
@@ -52,4 +53,6 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'message': message 
         }))
         print(f"Уведомление отправлено боту: {message}")
+
+    
 

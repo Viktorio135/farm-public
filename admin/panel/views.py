@@ -14,11 +14,15 @@ from django.forms.models import model_to_dict
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.db.models import Count, Q
+from django.utils import timezone
 
 
-from admin.consumers import response_queue
+from admin.queues import response_queue
 from .serializers import TaskSerializer
 from .models import User, Task, UserTask, Channel
+
+
+
 
 
 async def get_channel_members_count(channel_id):
@@ -35,7 +39,6 @@ async def get_channel_members_count(channel_id):
             }),
         }
     )
-
     # Ждем ответа от бота
     response = await response_queue.get()
     return response['members_count']
@@ -121,6 +124,17 @@ class CreateTaskVies(View):
             example=serializer.validated_data['example'],
             status='1'  # По умолчанию задание активно
         )
+        user_ids = [int(user) for user in required_subscriptions]
+        users = await sync_to_async(list)(User.objects.filter(user_id__in=user_ids))
+
+        # Создаем записи UserTask для каждого пользователя
+        user_tasks = [
+            UserTask(user=user, task=task, status='missed')
+            for user in users
+        ]
+
+        # Используем bulk_create для создания всех записей за один запрос
+        await sync_to_async(UserTask.objects.bulk_create)(user_tasks)
 
         # Перенаправляем на страницу списка заданий
         return redirect('panel:task_list')
@@ -267,13 +281,13 @@ class UserDetailView(View):
     async def get(self, request, user_id):
         # Получаем пользователя и его задания
         user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
-        user_tasks = await sync_to_async(list)(UserTask.objects.filter(user=user))
+        user_tasks = await sync_to_async(list)(UserTask.objects.filter(user=user).prefetch_related('task'))
 
         # Разделяем задания на выполненные и текущие
         completed_tasks = [task for task in user_tasks if task.status == 'approved']
         pending_tasks = [task for task in user_tasks if task.status == 'pending']
         rejected_tasks = [task for task in user_tasks if task.status == 'rejected']
-        missed_tasks = [task for task in user_tasks if task.status == 'missed']
+        missed_tasks = [task for task in user_tasks if task.status == 'missed' and task.task.status == '0']
 
         # Контекст для шаблона
         context = {

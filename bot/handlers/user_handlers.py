@@ -9,7 +9,7 @@ from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 
 
-from services.task_service import get_tasks, create_user_task, send_confirmation
+from services.task_service import get_tasks, create_user_task, send_confirmation, get_channels
 from services.user_service import get_user, create_user
 from keyboards.user_keyboards import main_menu_keyboard, channels_keyboard
 from utils.get_members import get_chat_members
@@ -78,8 +78,25 @@ class TaskStates(StatesGroup):
 async def start(message: Message):
     user = await get_user(message.from_user.id)
     if not user:
-        await create_user(message.from_user.id, message.from_user.username)
-    await message.answer(
+        channels = await get_channels()
+        in_channels = False
+        for channel in channels:
+            members = await get_chat_members(int(channel['chat_id']))
+            if str(message.from_user.id) in members:
+                in_channels = True
+                break
+        if in_channels:
+            await create_user(message.from_user.id, message.from_user.username)
+            await message.answer(
+"""Добро пожаловать!
+
+На нашу площадку ххх
+
+Скорее заходи в задания и зарабатывай деньги!
+        """
+                , reply_markup=main_menu_keyboard())
+    else:
+        await message.answer(
 """Добро пожаловать!
 
 На нашу площадку ххх

@@ -56,7 +56,7 @@ class TaskListView(APIView):
         all_tasks = await sync_to_async(list)(Task.objects.filter(status='1'))
 
         # Получаем задания, которые пользователь уже выполнял
-        user_tasks = await sync_to_async(list)(UserTask.objects.filter(user_id=user_id).values_list('task_id', flat=True))
+        user_tasks = await sync_to_async(list)(UserTask.objects.filter(user_id=user_id).exclude(status='missed').values_list('task_id', flat=True))
 
         # Исключаем выполненные задания
         available_tasks = [task for task in all_tasks if task.id not in user_tasks]
@@ -88,12 +88,25 @@ class SendConfirmationView(APIView):
             file_name = default_storage.save(f"{dir_path}/{file.name}", file)
             user = await sync_to_async(User.objects.get)(user_id=user_id)
             task = await sync_to_async(Task.objects.get)(channels=task_id, status='1')
-            await sync_to_async(UserTask.objects.create)(
+
+            usertask = await sync_to_async(UserTask.objects.filter(
                 user=user,
                 task=task,
-                status='pending',
-                screenshot=file_name
-            )
+                status='missed').first)()
+
+            if usertask:
+                # Обновляем существующий UserTask
+                usertask.status = 'pending'
+                usertask.screenshot = file_name
+                await sync_to_async(usertask.save)()
+            else:
+                # Создаем новый UserTask
+                await sync_to_async(UserTask.objects.create)(
+                    user=user,
+                    task=task,
+                    status='pending',
+                    screenshot=file_name
+                )
             return Response(status=status.HTTP_201_CREATED)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -108,3 +121,15 @@ class UserTaskView(APIView):
             await sync_to_async(serializer.save)()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+
+class ChannelsListView(APIView):
+    async def get(self, request):
+        try:
+            channels = await sync_to_async(list)(Channel.objects.all())
+            serializer = ChannelsSerializer(channels, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except:
+            return Response(status=status.HTTP_503_SERVICE_UNAVAILABLE)

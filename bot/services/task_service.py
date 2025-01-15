@@ -8,6 +8,13 @@ async def get_tasks(user_id):
                 return await response.json()
             return []
         
+async def get_channels():
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{API_URL}channels/get/") as response:
+            if response.status == 200:
+                return await response.json()
+            return []
+
 
 async def send_confirmation(image_url, user_id, task_id):
     async with aiohttp.ClientSession() as session:

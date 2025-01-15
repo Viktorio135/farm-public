@@ -22,3 +22,5 @@ class ChannelsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Channel
         fields = '__all__'
+
+        
