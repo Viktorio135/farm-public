@@ -64,6 +64,7 @@
     </style>
 </head>
 <body>
+    {% include 'admin_panel/navbar.html' %}
     <h1>Главная страница</h1>
 
     <!-- Сводка по боту -->
@@ -80,15 +81,6 @@
             <h2>Пользователи</h2>
             <p>{{ total_users }}</p>
         </div>
-    </div>
-
-    <!-- Кнопки для навигации -->
-    <div class="buttons">
-        <a href="">Отчеты</a>
-        <a href="{% url 'panel:user_list' %}">Пользователи</a>
-        <a href="{% url 'panel:task_list' %}">Задания</a>
-        <a href="{% url 'panel:check_tasks' %}">Проверка</a>
-        <a href="">Статистика</a>
     </div>
 </body>
 </html>

@@ -12,8 +12,7 @@ def examples_upload_path(instance, filename):
 class User(models.Model):
     user_id = models.BigIntegerField(primary_key=True)
     username = models.CharField(max_length=255, null=True, blank=True)
-    phone_number = models.CharField(max_length=20, null=True, blank=True)
-    bank_details = models.CharField(max_length=255, null=True, blank=True)
+    avatar = models.BooleanField(default=False)
     balance = models.FloatField(default=0.0)
     last_activity = models.DateTimeField(null=True, blank=True)
 

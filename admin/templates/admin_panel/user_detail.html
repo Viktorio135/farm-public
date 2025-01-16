@@ -76,12 +76,13 @@
     </style>
 </head>
 <body>
+    {% include 'admin_panel/navbar.html' %}
     <h1>Детали пользователя: {{ user.username }}</h1>
 
     <div class="user-info">
         <p><strong>ID:</strong> {{ user.user_id }}</p>
-        <p><strong>Телефон:</strong> {{ user.phone_number }}</p>
         <p><strong>Баланс:</strong> {{ user.balance }} руб.</p>
+        <p><strong>Аватарка:</strong> {{ user.avatar }}</p>
         <p><strong>Последняя активность:</strong> {{ user.last_activity }}</p>
     </div>
 
@@ -92,8 +93,7 @@
                 <li>
                     {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
                     <br>
-                    <br>
-                    <a href="{{ task.screenshot.url }}" target="_blank">Перейти к заданию</a>
+                    <a href="{% url "panel:user_task_detail" task.id%}">Перейти к деталям выполнения</a>
                 </li>
             {% empty %}
                 <li>Нет выполненных заданий.</li>
@@ -108,8 +108,7 @@
                 <li>
                     {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
                     <br>
-                    <a href="{{ task.screenshot.url }}" target="_blank">Перейти к заданию</a>
-                    <a href="{{ task.screenshot.url }}" target="_blank">Проверить</a>
+                    <a href="{% url "panel:check_task" %} task.id">Проверить</a>
                 </li>
             {% empty %}
                 <li>Нет заданий на рассмотрении.</li>
@@ -126,7 +125,7 @@
                     <br>
                     <strong>Причина:</strong> {{ task.feedback }}
                     <br>
-                    <a href="{{ task.screenshot.url }}" target="_blank">Перейти к заданию</a>
+                    <a href="{% url "panel:user_task_detail" task.id%}">Перейти к деталям выполнения</a>
                 </li>
             {% empty %}
                 <li>Нет отклоненных заданий.</li>
@@ -139,13 +138,9 @@
             {% for task in missed_tasks %}
                 <li>
                     {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
-                    <br>
-                    <strong>Причина:</strong> {{ task.feedback }}
-                    <br>
-                    <a href="{{ task.screenshot.url }}" target="_blank">Перейти к заданию</a>
                 </li>
             {% empty %}
-                <li>Нет отклоненных заданий.</li>
+                <li>Нет пропущенных заданий.</li>
             {% endfor %}
         </ul>
     </div>

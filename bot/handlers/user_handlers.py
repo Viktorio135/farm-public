@@ -75,7 +75,7 @@ class TaskStates(StatesGroup):
     SCREENSHOT = State()
 
 @router.message(Command("start"))
-async def start(message: Message):
+async def start(message: Message, bot: Bot):
     user = await get_user(message.from_user.id)
     if not user:
         channels = await get_channels()
@@ -86,7 +86,10 @@ async def start(message: Message):
                 in_channels = True
                 break
         if in_channels:
-            await create_user(message.from_user.id, message.from_user.username)
+            avatar = await bot.get_user_profile_photos(message.from_user.id)
+            avatar = avatar.total_count > 0
+            print(avatar)
+            await create_user(message.from_user.id, message.from_user.username, avatar)
             await message.answer(
 """Добро пожаловать!
 

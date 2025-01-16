@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Управление заданиями</title>
+    <title>Архивные задания</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,25 +26,6 @@
         }
         #search:focus {
             border-color: #007bff;
-        }
-        .summary {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-        .summary div {
-            background-color: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            flex: 1;
-            margin: 0 10px;
-        }
-        .summary div span {
-            font-size: 24px;
-            font-weight: bold;
-            color: #007bff;
         }
         table {
             width: 100%;
@@ -78,56 +59,24 @@
         a:hover {
             color: #0056b3;
         }
-        .archive-btn {
-            background-color: #6c757d;
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #007bff;
+            text-decoration: none;
+            transition: color 0.3s ease;
         }
-        .archive-btn:hover {
-            background-color: #5a6268;
-        }
-        .create-btn {
-            background-color: #28a745;
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin-right: 10px;
-        }
-        
-        .create-btn:hover {
-            background-color: #218838;
+        .back-link:hover {
+            color: #0056b3;
         }
     </style>
 </head>
 <body>
     {% include 'admin_panel/navbar.html' %}
-    <h1>Задания</h1>
+    <h1>Архивные задания</h1>
     <input type="text" id="search" onkeyup="searchTasks()" placeholder="Поиск по названию канала...">
-    
-    <div class="summary">
-        <div>
-            <span>{{ active_tasks_count }}</span>
-            <p>Активные задания</p>
-        </div>
-        <div>
-            <span>{{ archived_tasks_count }}</span>
-            <p>Задания в архиве</p>
-        </div>
-        <div>
-            <span>{{ total_tasks_count }}</span>
-            <p>Всего заданий</p>
-        </div>
-    </div>
 
-    <button class="archive-btn" onclick="window.location.href='{% url "panel:archived_tasks" %}'">Архив</button>
-    <button class="create-btn" onclick="window.location.href='{% url "panel:create_task" %}'">Создать задание</button>
     <table id="tasksTable">
         <thead>
             <tr>
@@ -139,23 +88,31 @@
                 <th>Выполнено</th>
                 <th>Отклонено</th>
                 <th>Ожидают оценки</th>
+                <th>Пропущенно</th>
             </tr>
         </thead>
         <tbody>
             {% for task in tasks %}
-                <tr data-href="{% url "panel:task_detail" task.id %}">
-                    <td>{{ task.channel_name }}</td>
-                    <td><a href="{{ task.channel_link }}" target="_blank">{{ task.channel_link }}</a></td>
+                <tr data-href="{% url 'panel:task_detail' task.id %}">
+                    <td>{{ task.name }}</td>
+                    <td><a href="{{ task.link }}" target="_blank">{{ task.link }}</a></td>
                     <td>{{ task.start_time }}</td>
                     <td>{{ task.end_time }}</td>
                     <td>{{ task.required_subscriptions }}</td>
                     <td>{{ task.completed_count }}</td>
                     <td>{{ task.rejected_count }}</td>
                     <td>{{ task.pending_count }}</td>
+                    <td>{{ task.missed_count }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center;">Нет архивных заданий.</td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    <a href="{% url 'panel:task_list' %}" class="back-link">Назад к списку активных заданий</a>
 
     <script>
         // Поиск заданий

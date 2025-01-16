@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Детали задания</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .task-info {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto 20px;
+        }
+        .task-info p {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        .task-info p strong {
+            color: #007bff;
+        }
+        .users-section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto 20px;
+        }
+        .users-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .users-section ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .users-section ul li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
+        .users-section ul li strong {
+            color: #007bff;
+        }
+        .users-section ul li a {
+            color: #28a745;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .users-section ul li a:hover {
+            color: #218838;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #007bff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .back-link:hover {
+            color: #0056b3;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .action-buttons button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .edit-btn {
+            background-color: #ffc107;
+            color: #000;
+        }
+        .edit-btn:hover {
+            background-color: #e0a800;
+        }
+        .complete-btn {
+            background-color: #28a745;
+            color: #fff;
+        }
+        .complete-btn:hover {
+            background-color: #218838;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            color: #fff;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+        .edit-form {
+            display: none;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto 20px;
+        }
+        .edit-form input,
+        .edit-form textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .edit-form button {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .edit-form button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    {% include 'admin_panel/navbar.html' %}
+    <h1>Детали задания: {{ task.name }}</h1>
+
+    <div class="action-buttons">
+        <button class="edit-btn" onclick="toggleEditForm()">Редактировать задание</button>
+        <button class="complete-btn" onclick="completeTask()">Завершить задание</button>
+        <button class="delete-btn" onclick="deleteTask()">Удалить задание</button>
+    </div>
+
+    <div class="edit-form" id="editForm">
+        <h2>Редактирование задания</h2>
+        <form method="post" action="{% url 'panel:edit_task' task.id %}">
+            {% csrf_token %}
+            <label>Название</label>
+            <input type="text" name="name" value="{{ task.name }}" placeholder="Название задания" required>
+            <label>Ссылка</label>
+            <input type="text" name="link" value="{{ task.link }}" placeholder="Ссылка на канал" required>
+            <label>Требуется выполнений</label>
+            <input type="number" name="required_subscriptions" value="{{ task.required_subscriptions }}" placeholder="Требуется подписчиков" required>
+            <label>Награда</label>
+            <input type="number" name="reward" value="{{ task.reward }}" placeholder="Награда" step="0.01" required>
+            <label>Время окончания</label>
+            <input type="datetime-local" name="end_time" value="{{ task.end_time|date:'Y-m-d\TH:i' }}" placeholder="Время окончания" required>
+            <button type="submit">Сохранить изменения</button>
+        </form>
+    </div>
+
+    <div class="task-info">
+        <p><strong>Название:</strong> {{ task.name }}</p>
+        <p><strong>Ссылка:</strong> <a href="{{ task.link }}" target="_blank">{{ task.link }}</a></p>
+        <p><strong>Канал:</strong> {{ task.channels.name }}</p>
+        <p><strong>Статус:</strong> {{ task.get_status_display }}</p>
+        <p><strong>Время начала:</strong> {{ task.start_time }}</p>
+        <p><strong>Время окончания:</strong> {{ task.end_time }}</p>
+        <p><strong>Требуется подписчиков:</strong> {{ task.required_subscriptions }}</p>
+        <p><strong>Награда:</strong> {{ task.reward }} руб.</p>
+        <p><strong>Пример:</strong> <a href="{{ task.example.url }}" target="_blank">Посмотреть пример</a></p>
+    </div>
+
+    <div class="users-section">
+        <h2>Выполненные задания: {{ completed_tasks|length }}</h2>
+        <ul>
+            {% for user_task in completed_tasks %}
+                <li>
+                    <strong>Пользователь:</strong><a href="{% url "panel:user_detail" user_task.user.user_id%}"> {{ user_task.user.username }} (ID: {{ user_task.user.user_id }})</a>
+                    <br>
+                    <strong>Детали выполнения:</strong> <a href="{% url "panel:user_task_detail" user_task.id %}">Посмотреть</a>
+                </li>
+            {% empty %}
+                <li>Нет выполненных заданий.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="users-section">
+        <h2>Задания на рассмотрении: {{ pending_tasks|length }}</h2>
+        <ul>
+            {% for user_task in pending_tasks %}
+                <li>
+                    <strong>Пользователь:</strong><a href="{% url "panel:user_detail" user_task.user.user_id%}"> {{ user_task.user.username }} (ID: {{ user_task.user.user_id }})</a>
+                    <br>
+                    <a href="{% url 'panel:check_task' user_task.id %}">Проверить</a>
+                </li>
+            {% empty %}
+                <li>Нет заданий на рассмотрении.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="users-section">
+        <h2>Отклоненные задания: {{ rejected_tasks|length }}</h2>
+        <ul>
+            {% for user_task in rejected_tasks %}
+                <li>
+                    <strong>Пользователь:</strong><a href="{% url "panel:user_detail" user_task.user.user_id%}"> {{ user_task.user.username }} (ID: {{ user_task.user.user_id }})</a>
+                    <br>
+                    <strong>Причина:</strong> {{ user_task.feedback }}
+                    <br>
+                    <strong>Детали выполнения:</strong> <a href="{% url "panel:user_task_detail" user_task.id %}">Посмотреть</a>
+                </li>
+            {% empty %}
+                <li>Нет отклоненных заданий.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="users-section">
+        <h2>Пропущенные задания: {{ missed_tasks|length }}</h2>
+        <ul>
+            {% for user_task in missed_tasks %}
+                <li>
+                    <strong>Пользователь:</strong><a href="{% url "panel:user_detail" user_task.user.user_id%}"> {{ user_task.user.username }} (ID: {{ user_task.user.user_id }})</a>
+                </li>
+            {% empty %}
+                <li>Нет пропущенных заданий.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <a href="{% url 'panel:task_list' %}" class="back-link">Назад к списку заданий</a>
+
+    <script>
+        // Показать/скрыть форму редактирования
+        function toggleEditForm() {
+            const editForm = document.getElementById("editForm");
+            editForm.style.display = editForm.style.display === "none" ? "block" : "none";
+        }
+
+        // Завершить задание
+        function completeTask() {
+            if (confirm("Вы уверены, что хотите завершить задание?")) {
+                window.location.href = "{% url 'panel:complete_task' task.id %}";
+            }
+        }
+
+        // Удалить задание
+        function deleteTask() {
+            if (confirm("Вы уверены, что хотите удалить задание?")) {
+                window.location.href = "{% url 'panel:delete_task' task.id %}";
+            }
+        }
+    </script>
+</body>
+</html>

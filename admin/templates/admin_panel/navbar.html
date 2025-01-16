@@ -1,0 +1,14 @@
+<!-- navbar.html -->
+<nav style="background-color: #007bff; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="color: #fff; font-size: 20px; font-weight: bold;">
+        Панель управления
+    </div>
+    <div style="display: flex; gap: 20px;">
+        <a href="{% url 'panel:index' %}" style="color: #fff; text-decoration: none; font-size: 16px; transition: color 0.3s ease;">Главная</a>
+        <a href="{% url 'panel:user_list' %}" style="color: #fff; text-decoration: none; font-size: 16px; transition: color 0.3s ease;">Пользователи</a>
+        <a href="{% url 'panel:task_list' %}" style="color: #fff; text-decoration: none; font-size: 16px; transition: color 0.3s ease;">Задания</a>
+        <a href="{% url 'panel:check_tasks' %}" style="color: #fff; text-decoration: none; font-size: 16px; transition: color 0.3s ease;">Проверка</a>
+        <a href="" style="color: #fff; text-decoration: none; font-size: 16px; transition: color 0.3s ease;">Отчеты</a>
+        <a href="" style="color: #fff; text-decoration: none; font-size: 16px; transition: color 0.3s ease;">Статистика</a>
+    </div>
+</nav>

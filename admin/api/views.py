@@ -17,6 +17,7 @@ class UserAddView(APIView):
     async def post(self, request):
         user_id = request.data.get('user_id')
         username = request.data.get('username')
+        avatar = request.data.get('avatar')
 
         if not user_id or not username:
             return Response(
@@ -25,7 +26,7 @@ class UserAddView(APIView):
             )
 
         try:
-            user = await User.objects.acreate(user_id=user_id, username=username)
+            user = await User.objects.acreate(user_id=user_id, username=username, avatar=avatar)
         except Exception as e:
             return Response(
                 {"error": str(e)},

@@ -8,7 +8,7 @@ async def get_user(user_id):
                 return await response.json()
             return None
 
-async def create_user(user_id, username):
+async def create_user(user_id, username, avatar):
     async with aiohttp.ClientSession() as session:
-        async with session.post(f"{API_URL}users/add/", data={"user_id": user_id, "username": username}) as response:
+        async with session.post(f"{API_URL}users/add/", data={"user_id": user_id, "username": username, "avatar": avatar}) as response:
             return response.status == 201

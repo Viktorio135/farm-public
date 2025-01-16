@@ -141,7 +141,6 @@ class CreateTaskVies(View):
 
 
 
-
 @method_decorator(csrf_exempt, name='dispatch')
 class TaskListView(View):
     async def get(self, request):
@@ -179,6 +178,61 @@ class TaskListView(View):
         return await sync_to_async(render)(request, 'admin_panel/tasks.html', context=context)
 
 
+class TaskDetailView(View):
+    async def get(self, request, task_id):
+        task = await sync_to_async(get_object_or_404)(Task, id=task_id)
+
+        completed_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='approved'))
+        pending_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='pending'))
+        rejected_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='rejected'))
+        missed_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='missed', task__status='0'))
+
+        context = {
+            'task': task,
+            'completed_tasks': completed_tasks,
+            'pending_tasks': pending_tasks,
+            'rejected_tasks': rejected_tasks,
+            'missed_tasks': missed_tasks,
+        }
+
+        return await sync_to_async(render)(request, 'admin_panel/task_detail.html', context)
+
+
+class EditTaskView(View):
+    async def post(self, request, task_id):
+        task = await sync_to_async(get_object_or_404)(Task, id=task_id)
+
+        # Обновляем данные задания
+        task.name = request.POST.get('name')
+        task.link = request.POST.get('link')
+        task.required_subscriptions = int(request.POST.get('required_subscriptions'))
+        task.reward = float(request.POST.get('reward'))
+        task.end_time = request.POST.get('end_time')
+
+        await sync_to_async(task.save)()
+        return redirect('panel:task_detail', task_id=task.id)
+    
+
+class CompleteTaskView(View):
+    async def get(self, request, task_id):
+        task = await sync_to_async(get_object_or_404)(Task, id=task_id)
+
+        # Меняем статус задания на "архив"
+        task.status = '0'
+        await sync_to_async(task.save)()
+
+        return redirect('panel:task_detail', task_id=task.id)
+
+
+class DeleteTaskView(View):
+    async def get(self, request, task_id):
+        task = await sync_to_async(get_object_or_404)(Task, id=task_id)
+
+        # Удаляем задание
+        await sync_to_async(task.delete)()
+        return redirect('panel:task_list')
+
+
 class CheckTaskView(View):
     async def get(self, request):
         context = {}
@@ -214,14 +268,13 @@ class CheckTaskDetailView(View):
         # Обновляем статус и обратную связь
         task.status = status
         task.feedback = feedback
+        user = await sync_to_async(lambda: task.user)()
+        task_obj = await sync_to_async(lambda: task.task)()
         await sync_to_async(task.save)()
         if status == 'approved':
-            # Получаем связанный объект Task асинхронно
-            task_obj = await sync_to_async(lambda: task.task)()
             reward = task_obj.reward
 
             # Получаем пользователя асинхронно
-            user = await sync_to_async(lambda: task.user)()
             user.balance = user.balance + reward
             await sync_to_async(user.save)()
 
@@ -246,6 +299,37 @@ class CheckTaskDetailView(View):
 
     
 
+class UserTaskDetailView(View):
+    async def get(self, request, user_task_id):
+        task_data = await sync_to_async(get_object_or_404)(UserTask, id=user_task_id)
+
+        context = {
+            'task_data': task_data,
+        }
+
+        return await sync_to_async(render)(request, 'admin_panel/user_task_detail.html', context)
+
+
+class ArchivedTasksView(View):
+    async def get(self, request):
+        # Фильтруем задачи по статусу "архив" (status='0')
+        tasks = await sync_to_async(list)(Task.objects.filter(status='0'))
+
+        # Добавляем аннотации для подсчета выполненных, отклоненных и ожидающих задач
+        tasks = await sync_to_async(list)(
+            Task.objects.filter(status='0').annotate(
+                completed_count=Count('usertask', filter=Q(usertask__status='approved')),
+                rejected_count=Count('usertask', filter=Q(usertask__status='rejected')),
+                pending_count=Count('usertask', filter=Q(usertask__status='pending')),
+                missed_count=Count('usertask', filter=Q(usertask__status='missed')),
+            )
+        )
+
+        context = {
+            'tasks': tasks,
+        }
+
+        return await sync_to_async(render)(request, 'admin_panel/archived_tasks.html', context)
 
 class UserListView(View):
     async def get(self, request):
