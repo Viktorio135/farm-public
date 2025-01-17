@@ -27,3 +27,5 @@ class TaskSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Вознаграждение должно быть больше 0.")
         return value
 
+
+

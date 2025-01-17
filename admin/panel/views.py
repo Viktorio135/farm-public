@@ -13,13 +13,15 @@ from django.views.decorators.csrf import csrf_exempt
 from django.forms.models import model_to_dict
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F, ExpressionWrapper, FloatField
 from django.utils import timezone
+from django.db.models.functions import Coalesce
+
 
 
 from admin.queues import response_queue
 from .serializers import TaskSerializer
-from .models import User, Task, UserTask, Channel
+from .models import User, Task, UserTask, Channel, Transaction
 
 
 
@@ -273,10 +275,15 @@ class CheckTaskDetailView(View):
         await sync_to_async(task.save)()
         if status == 'approved':
             reward = task_obj.reward
-
             # Получаем пользователя асинхронно
             user.balance = user.balance + reward
             await sync_to_async(user.save)()
+            await sync_to_async(Transaction.objects.create)(
+                user=user,
+                amount=reward,
+                type='completed_task',
+                comment=f'Успешное выполнение задания {task_obj.id}'
+            )
 
             # Отправляем уведомление через WebSocket
             message_text = (
@@ -372,6 +379,11 @@ class UserDetailView(View):
         pending_tasks = [task for task in user_tasks if task.status == 'pending']
         rejected_tasks = [task for task in user_tasks if task.status == 'rejected']
         missed_tasks = [task for task in user_tasks if task.status == 'missed' and task.task.status == '0']
+        transactions = await sync_to_async(list)(Transaction.objects.filter(user=user).order_by('-timestamp'))
+        if (len(completed_tasks) + len(rejected_tasks) + len(missed_tasks)) != 0:
+            completion_rate = ((len(completed_tasks) + len(rejected_tasks)) / (len(completed_tasks) + len(rejected_tasks) + len(missed_tasks))) * 100
+        else:
+            completion_rate = 0
 
         # Контекст для шаблона
         context = {
@@ -380,49 +392,170 @@ class UserDetailView(View):
             'pending_tasks': pending_tasks,
             'rejected_tasks': rejected_tasks,
             'missed_tasks': missed_tasks,
+            'transactions': transactions,
+            'completion_rate': completion_rate,
         }
         return await sync_to_async(render)(request, 'admin_panel/user_detail.html', context)
     
-    # async def post(self, request, user_id):
-    #     # Получаем пользователя и его задания
-    #     user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
-    #     user_tasks = await sync_to_async(list)(UserTask.objects.filter(user=user))
 
-    #     # Разделяем задания на выполненные, текущие и отклоненные
-    #     completed_tasks = [task for task in user_tasks if task.status == 'approved']
-    #     pending_tasks = [task for task in user_tasks if task.status == 'pending']
-    #     rejected_tasks = [task for task in user_tasks if task.status == 'rejected']
+class AddFundsView(View):
+    async def post(self, request, user_id):
+        user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
+        amount = float(request.POST.get('amount'))
+        comment = request.POST.get('comment')
 
-    #     # Преобразуем объекты в словари
-    #     user_dict = {
-    #         "user_id": user.user_id,
-    #         "username": user.username,
-    #         "balance": user.balance,
-    #         "phone_number": user.phone_number,
-    #         "last_activity": user.last_activity.isoformat() if user.last_activity else None,
-    #     }
+        # Начисляем деньги
+        user.balance += amount
+        await sync_to_async(user.save)()
 
-    #     def task_to_dict(task):
-    #         return {
-    #             "task_id": task.task.id,
-    #             "channel_name": task.task.channel_name,
-    #             "channel_link": task.task.channel_link,
-    #             "reward": task.task.reward,
-    #             "status": task.status,
-    #             "screenshot": task.screenshot,
-    #             "feedback": task.feedback,
-    #         }
+        # Логируем транзакцию
+        await sync_to_async(Transaction.objects.create)(
+            user=user,
+            amount=amount,
+            type='manual_crediting',
+            comment=comment,
+        )
 
-    #     completed_tasks_dict = [task_to_dict(task) for task in completed_tasks]
-    #     pending_tasks_dict = [task_to_dict(task) for task in pending_tasks]
-    #     rejected_tasks_dict = [task_to_dict(task) for task in rejected_tasks]
+        # Добавляем сообщение об успехе
 
-    #     # Контекст для JSON-ответа
-    #     context = {
-    #         "user": user_dict,
-    #         "completed_tasks": completed_tasks_dict,
-    #         "pending_tasks": pending_tasks_dict,
-    #         "rejected_tasks": rejected_tasks_dict,
-    #     }
+        message_text = (
+            f"Вам зачислена награда {amount} руб.\n"
+            f"Комментарий к начислению: {comment}"
+        )
+        await send_websocket_notification(user.user_id, message_text)
+        return redirect('panel:user_detail', user_id=user.user_id)
+    
 
-    #     return JsonResponse(context)
+class ApproveTaskView(View):
+    async def get(self, request, user_task_id):
+        user_task = await sync_to_async(get_object_or_404)(UserTask, id=user_task_id)
+
+        # Засчитываем задание
+        user_task.status = 'approved'
+        await sync_to_async(user_task.save)()
+
+        # Начисляем вознаграждение пользователю
+        user = user_task.user
+        user.balance += user_task.task.reward
+        await sync_to_async(user.save)()
+
+        # Логируем транзакцию
+        await sync_to_async(Transaction.objects.create)(
+            user=user,
+            amount=user_task.task.reward,
+            type='completed_task',
+            comment=f"Ручное зачитывание задания {user_task.task.id}",
+        )
+        message_text = f"Задание '{user_task.task.name}' засчитано. Начислено {user_task.task.reward} руб."
+        # Добавляем сообщение об успехе
+        await send_websocket_notification(user_task.user.user_id, message_text)
+
+        return redirect('panel:user_detail', user_id=user.user_id)
+    
+
+
+class ChannelListView(View):
+    async def get(self, request):
+        channels = await sync_to_async(list)(Channel.objects.all())
+        return await sync_to_async(render)(request, 'admin_panel/channels.html', {'channels': channels})
+    
+
+class CreateChannelView(View):
+    async def get(self, request):
+        return await sync_to_async(render)(request, 'admin_panel/create_channel.html')
+
+    async def post(self, request):
+        name = request.POST.get('name')
+        chat_id = request.POST.get('chat_id')
+
+        # Создаем канал
+        await sync_to_async(Channel.objects.create)(name=name, chat_id=chat_id)
+        return redirect('panel:channel_list')
+
+class ChannelDetailView(View):
+    async def get(self, request, channel_id):
+        channel = await sync_to_async(get_object_or_404)(Channel, id=channel_id)
+        total_tasks = await sync_to_async(UserTask.objects.filter(task__channels=channel).count)()
+        completed_rask = await sync_to_async(UserTask.objects.filter(task__channels=channel).exclude(status='missed').count)()
+        if total_tasks != 0:
+            percent = (completed_rask / total_tasks) * 100
+        else:
+            percent = 100
+        return await sync_to_async(render)(request, 'admin_panel/channel_detail.html', {'channel': channel, 'percent': percent})
+
+class EditChannelView(View):
+    async def post(self, request, channel_id):
+        channel = await sync_to_async(get_object_or_404)(Channel, id=channel_id)
+
+        # Обновляем данные канала
+        channel.name = request.POST.get('name')
+        channel.chat_id = request.POST.get('chat_id')
+        await sync_to_async(channel.save)()
+        return redirect('panel:channel_detail', channel_id=channel.id)
+
+class DeleteChannelView(View):
+    async def get(self, request, channel_id):
+        channel = await sync_to_async(get_object_or_404)(Channel, id=channel_id)
+        usertask = await sync_to_async(UserTask.objects.filter(task__channels=channel, status='pending').count)()
+        if usertask == 0:
+            await sync_to_async(channel.delete)()
+        return redirect('panel:channel_list')
+    
+
+from django.db.models import Count, Q, F, ExpressionWrapper, FloatField
+from django.db.models.functions import Coalesce
+
+class UserChannelStatisticsView(View):
+    async def get(self, request):
+        # Получаем список всех каналов
+        channels = await sync_to_async(list)(Channel.objects.all())
+
+        # Получаем данные о всех пользователях и их статистике
+        users = await sync_to_async(list)(
+            User.objects.annotate(
+                total_missed=Count('usertask', filter=Q(usertask__status='missed', usertask__task__status='0')),
+                total_tasks=Count('usertask'),
+                completion_rate=ExpressionWrapper(
+                    Coalesce(100 * Count('usertask', filter=Q(usertask__status='approved')) / Count('usertask'), 0.0),
+                    output_field=FloatField()
+                )
+            )
+        )
+
+        # Для каждого пользователя рассчитываем количество реклам, пропущенных подряд
+        for user in users:
+            # Получаем все задачи пользователя, отсортированные по времени окончания (от новых к старым)
+            user_tasks = await sync_to_async(list)(
+                UserTask.objects.filter(user=user).select_related('task__channels').order_by('-task__end_time')
+            )
+
+            # Счетчик для количества пропущенных подряд
+            last_missed_sequence = 0
+
+            # Проходим по всем задачам пользователя
+            for user_task in user_tasks:
+                # Если задача пропущена (missed), увеличиваем счетчик
+                if user_task.status == 'missed' and user_task.task.status == '0':
+                    last_missed_sequence += 1
+                # Если задача не пропущена (approved, pending и т.д.), останавливаем подсчет
+                else:
+                    break
+
+            # Сохраняем количество пропущенных подряд
+            user.last_missed_sequence = last_missed_sequence
+
+        # Получаем список user_id для каждого канала
+        channel_members = {}
+        for channel in channels:
+            user_ids = await get_channel_members_count(channel.chat_id)
+            user_ids = ast.literal_eval(user_ids)  # Преобразуем строку в список
+            channel_members[channel.id] = [int(user_id) for user_id in user_ids]  # Преобразуем user_id в числа
+
+        # Подготовка данных для шаблона
+        context = {
+            'channels': channels,
+            'users': users,
+            'channel_members': channel_members,
+        }
+
+        return await sync_to_async(render)(request, 'admin_panel/user_channel_statistics.html', context)

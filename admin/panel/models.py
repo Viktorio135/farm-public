@@ -71,9 +71,17 @@ class UserTask(models.Model):
         return f"{self.user.username} - {self.task.name}"
 
 class Transaction(models.Model):
+
+    TYPE_CHOISE = {
+        'completed_task': 'выполненное задание',
+        'manual_crediting': 'ручное зачисление',
+        'disbersement': 'выплата'
+    }
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     amount = models.FloatField()
-    type = models.CharField(max_length=20)  # deposit, withdrawal
+    type = models.CharField(max_length=20, choices=TYPE_CHOISE) 
+    comment = models.CharField(max_length=200)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
