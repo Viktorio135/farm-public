@@ -59,7 +59,8 @@ class UserTask(models.Model):
         'pending': 'Ожидает проверки',
         'approved': 'Выполнено',
         'rejected': 'Отклонено',
-        'missed': 'Пропущенные'
+        'missed': 'Пропущенные',
+        'referral_bonus': 'Реферальный бонус'
     }
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -113,3 +114,18 @@ class FolderUser(models.Model):
 
     def __str__(self):
         return f"{self.folder.name} - {self.user.username}"
+    
+
+
+class Referral(models.Model):
+    referrer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='referrals', verbose_name='Пригласивший')
+    referred = models.OneToOneField(User, on_delete=models.CASCADE, related_name='referrer', verbose_name='Приглашенный')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+
+    class Meta:
+        verbose_name = 'Реферал'
+        verbose_name_plural = 'Рефералы'
+        unique_together = ('referrer', 'referred')  # Убедимся, что связь уникальна
+
+    def __str__(self):
+        return f"{self.referrer.username} -> {self.referred.username}"

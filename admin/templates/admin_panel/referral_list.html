@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Список рефералов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: #fff;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    {% include 'admin_panel/navbar.html' %}
+    <h1>Список рефералов</h1>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Пригласивший</th>
+                <th>Приглашенный</th>
+                <th>Дата создания</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for referral in referrals %}
+                <tr>
+                    <td><a href="{% url "panel:user_detail" referral.referrer.user_id %}">{{ referral.referrer.username }} (ID: {{ referral.referrer.user_id }})</a></td>
+                    <td><a href="{% url "panel:user_detail" referral.referred.user_id %}">{{ referral.referred.username }} (ID: {{ referral.referred.user_id }})</a></td>
+                    <td>{{ referral.created_at }}</td>
+                    <td>
+                        <form method="post" action="{% url 'panel:delete_referral' referral.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="delete-btn">Удалить</button>
+                        </form>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="4">Нет рефералов.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="{% url 'panel:create_referral' %}" style="display: block; text-align: center; margin-top: 20px; color: #007bff; text-decoration: none;">Добавить реферала</a>
+</body>
+</html>

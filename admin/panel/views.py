@@ -14,15 +14,17 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 
 
 
 
-from .forms import FolderForm, FolderUserForm
+
+from .forms import FolderForm, FolderUserForm, ReferralForm
 from admin.queues import response_queue
 from .serializers import TaskSerializer
-from .models import User, Task, UserTask, Channel, Transaction, Folder, FolderUser, Payout
+from .models import Referral, User, Task, UserTask, Channel, Transaction, Folder, FolderUser, Payout
 
 
 
@@ -402,6 +404,13 @@ class UserDetailView(AsyncLoginRequiredMixin, View):
         user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
         user_tasks = await sync_to_async(list)(UserTask.objects.filter(user=user).prefetch_related('task'))
 
+        # Получаем информацию о пригласившем пользователе
+        referrer = await sync_to_async(Referral.objects.filter(referred=user).first)()
+        referrer_username = await sync_to_async(lambda: referrer.referrer)() if referrer else None
+
+        # Получаем список рефералов пользователя
+        referrals = await sync_to_async(list)(Referral.objects.filter(referrer=user).select_related('referred'))
+
         # Разделяем задания на выполненные и текущие
         completed_tasks = [task for task in user_tasks if task.status == 'approved']
         pending_tasks = [task for task in user_tasks if task.status == 'pending']
@@ -424,6 +433,8 @@ class UserDetailView(AsyncLoginRequiredMixin, View):
             'transactions': transactions,
             'completion_rate': completion_rate,
             'all_tasks_without_completed': all_tasks_without_completed,
+            'referrer_username': referrer_username,  # Имя пригласившего пользователя
+            'referrals': referrals,
         }
         return await sync_to_async(render)(request, 'admin_panel/user_detail.html', context)
     
@@ -673,15 +684,33 @@ class FolderDeleteView(AsyncLoginRequiredMixin, View):
 
 class PayoutView(View):
     async def get(self, request):
+
+        transactions = await sync_to_async(list)(Transaction.objects.all())
+
+        channels = await sync_to_async(list)(Channel.objects.all())
+
         # Получаем список всех каналов с количеством заданий, которые еще не были выплачены
-        channels = await sync_to_async(list)(
+        channels_with_tasks = await sync_to_async(list)(
             Channel.objects.annotate(
-                total_screenshots=Count(
-                    'task__usertask',
-                    filter=Q(task__usertask__status='approved')
-                )
-            )
+                tasks_list=Count('task')  # Аннотируем количество заданий для каждого канала
+            ).prefetch_related('task_set')  # Используем prefetch_related для оптимизации запросов
         )
+
+        channels_dict = {
+            channel.name: [task for task in channel.task_set.all()]
+            for channel in channels_with_tasks
+        }
+
+        channels_total = {}
+        for channel in channels_dict:
+            for task in channels_dict[channel]:
+                for transaction in transactions:
+                    if (transaction.comment.endswith(f' {task.id}')) and (await sync_to_async(lambda: transaction.payout_id)() is None):
+                        if channel not in channels_total:
+                            channels_total[channel] = 1
+                        else:
+                            channels_total[channel] += 1
+
 
         # Получаем список всех папок
         folders = await sync_to_async(list)(Folder.objects.all())
@@ -705,6 +734,8 @@ class PayoutView(View):
             # Считаем общую сумму выплаты для папки
             total_payout = sum(user.total_balance or 0 for user in folder_users)
 
+            
+
             folder_data.append({
                 'folder': folder,
                 'users': folder_users,
@@ -714,6 +745,7 @@ class PayoutView(View):
         # Контекст для шаблона
         context = {
             'channels': channels,
+            'channels_total': channels_total,
             'folders': folders,
             'folder_data': folder_data,
         }
@@ -765,8 +797,6 @@ class ResetBalancesView(View):
                 if transaction.type == 'manual_crediting' and not transaction.payout_id
             )
 
-            # Общая сумма к выплате
-            total_payout = completed_tasks_reward + manual_credits
 
             # Формируем сообщение
             message = (
@@ -804,3 +834,128 @@ class ResetBalancesView(View):
 
         # Перенаправляем обратно на страницу выплат
         return redirect('panel:payout_list')
+    
+
+class SendPayoutInformation(AsyncLoginRequiredMixin, View):
+    async def post(self, request):
+        # Получаем дату последней выплаты
+        last_payout = await sync_to_async(Payout.objects.order_by('-date').first)()
+        last_payout_date = last_payout.date if last_payout else None
+
+        # Получаем текущую дату
+        current_date = timezone.now()
+
+        # Создаем новую выплату
+
+        # Получаем всех пользователей
+        users = await sync_to_async(list)(User.objects.all())
+
+        # Для каждого пользователя
+        for user in users:
+            # Получаем транзакции пользователя за период
+            transactions = await sync_to_async(list)(
+                Transaction.objects.filter(
+                    user=user,
+                    payout_id__isnull=True  # Только невыплаченные транзакции
+                )
+            )
+
+            completed_tasks = sum(1 for t in transactions if t.type == 'completed_task')
+
+            pending_tasks = await sync_to_async(UserTask.objects.filter(user=user, status='pending').count)()
+
+            # Считаем сумму наград за выполненные задания
+            completed_tasks_reward = sum(
+                transaction.task.reward for transaction in transactions
+                if transaction.type == 'completed_task' and hasattr(transaction, 'task')
+            )
+
+            # Считаем сумму ручных зачислений
+            manual_credits = sum(
+                transaction.amount for transaction in transactions
+                if transaction.type == 'manual_crediting' and not transaction.payout_id
+            )
+
+            # Общая сумма к выплате
+
+            # Формируем сообщение
+            message = (
+                f"Отчёт за {last_payout_date.strftime('%d.%m.%Y') if last_payout_date else 'начало'} - {current_date.strftime('%d.%m.%Y')}\n"
+                f"Количество верных скринов: {completed_tasks}\n"
+                f"На рассмотрении: {pending_tasks}\n"
+                f"Добавления: {manual_credits} ₽:\n\n"
+            )
+            for index, tr in enumerate(transactions, start=1):
+                if tr.type == 'manual_crediting':
+                    message += f'{index}) {tr.amount}({tr.comment})\n'
+            message += f"\nК выплате: {user.balance} ₽"
+
+
+            await send_websocket_notification(user.user_id, message)
+
+
+        # Перенаправляем обратно на страницу выплат
+        return redirect('panel:payout_list')
+    
+
+
+class CreateReferralView(View):
+    async def get(self, request):
+        # Получаем список всех пользователей для выбора
+        users = await sync_to_async(list)(User.objects.all())
+        user_choices = [(user.user_id, f"{user.username} (ID: {user.user_id})") for user in users]
+
+        # Передаем список пользователей в форму
+        form = ReferralForm(user_choices=user_choices)
+        context = {
+            'users': users,
+            'form': form,
+        }
+        return await sync_to_async(render)(request, 'admin_panel/create_referral.html', context)
+
+    async def post(self, request):
+        # Получаем список всех пользователей для выбора
+        users = await sync_to_async(list)(User.objects.all())
+        user_choices = [(user.user_id, f"{user.username} (ID: {user.user_id})") for user in users]
+
+        # Передаем список пользователей в форму
+        form = ReferralForm(request.POST, user_choices=user_choices)
+        if await sync_to_async(form.is_valid)():
+            try:
+                referrer_id = form.cleaned_data['referrer']
+                referred_id = form.cleaned_data['referred']
+
+                # Получаем объекты пользователей
+                referrer = await sync_to_async(User.objects.get)(user_id=referrer_id)
+                referred = await sync_to_async(User.objects.get)(user_id=referred_id)
+
+                # Создаем реферальную связь
+                await sync_to_async(Referral.objects.create)(referrer=referrer, referred=referred)
+
+                return redirect('panel:referral_list')  # Перенаправляем на список рефералов
+            except ValidationError as e:
+                form.add_error(None, e)  # Добавляем ошибку в форму
+        else:
+            context = {
+                'users': users,
+                'form': form,
+            }
+            return await sync_to_async(render)(request, 'admin_panel/create_referral.html', context)
+        
+
+class ReferralListView(View):
+    async def get(self, request):
+        referrals = await sync_to_async(list)(Referral.objects.select_related('referrer', 'referred').all())
+        context = {
+            'referrals': referrals,
+        }
+        return await sync_to_async(render)(request, 'admin_panel/referral_list.html', context)
+    
+
+class DeleteReferralView(View):
+    async def post(self, request, referral_id):
+        # Получаем реферальную связь по ID
+        referral = await sync_to_async(Referral.objects.get)(id=referral_id)
+        # Удаляем реферальную связь
+        await sync_to_async(referral.delete)()
+        return redirect('panel:referral_list')

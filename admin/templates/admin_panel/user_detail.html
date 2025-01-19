@@ -153,6 +153,33 @@
         .show-all-button:hover {
             background-color: #0056b3;
         }
+
+        .referrals-section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 20px auto;
+        }
+        .referrals-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .referrals-section ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .referrals-section ul li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
+        .referrals-section ul li strong {
+            color: #007bff;
+        }
     </style>
 </head>
 <body>
@@ -164,6 +191,9 @@
         <p><strong>Баланс:</strong> {{ user.balance }} руб.</p>
         <p><strong>Аватарка:</strong> {{ user.avatar }}</p>
         <p><strong>Процент выполнения:</strong> {{ completion_rate }}%</p>
+        {% if referrer_username %}
+            <p><strong>Приглашен пользователем:</strong> <a href="{% url "panel:user_detail" referrer_username.user_id %}">{{ referrer_username.username }} (ID: {{ referrer_username.user_id }})</a></p>
+        {% endif %}
     </div>
 
     <!-- Форма для начисления денег -->
@@ -194,6 +224,24 @@
             </select>
             <button type="submit">Засчитать</button>
         </form>
+    </div>
+
+    <!-- Секция с рефералами -->
+    <div class="referrals-section">
+        <h2>Рефералы пользователя</h2>
+        <ul>
+            {% if referrals %}
+                {% for referral in referrals %}
+                    <li>
+                        <strong>Приглашенный:</strong><a href="{% url "panel:user_detail" referral.referred.user_id %}">{{ referral.referred.username }} (ID: {{ referral.referred.user_id }})</a>
+                        <br>
+                        <strong>Дата приглашения:</strong> {{ referral.created_at }}
+                    </li>
+                {% endfor %}
+            {% else %}
+                <li>У пользователя нет рефералов.</li>
+            {% endif %}
+        </ul>
     </div>
 
     <div class="tasks-section">

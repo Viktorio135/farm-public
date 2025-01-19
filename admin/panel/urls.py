@@ -35,4 +35,8 @@ urlpatterns = [
     path('folders/<int:folder_id>/remove-users/', FolderRemoveUsersView.as_view(), name='folder_remove_users'),
     path('payout/', PayoutView.as_view(), name='payout_list'),
     path('payout/reset/', ResetBalancesView.as_view(), name='payout_reset'),
+    path('payout/send_information/', SendPayoutInformation.as_view(), name='send_information'),
+    path('referrals/create/', CreateReferralView.as_view(), name='create_referral'),
+    path('referrals/', ReferralListView.as_view(), name='referral_list'),
+    path('referrals/delete/<int:referral_id>/', DeleteReferralView.as_view(), name='delete_referral'),
 ]

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Добавить реферала</title>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 20px auto;
+        }
+        .form-container label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .form-container select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .form-container button {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .form-container button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    {% include 'admin_panel/navbar.html' %}
+    <h1>Добавить реферала</h1>
+
+    <div class="form-container">
+        <form method="post">
+            {% csrf_token %}
+            <label for="id_referrer">Пригласивший:</label>
+            {{ form.referrer }}
+
+            <label for="id_referred">Приглашенный:</label>
+            {{ form.referred }}
+
+            <button type="submit">Создать</button>
+        </form>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Инициализация Select2 для выпадающих списков
+            $('#id_referrer').select2({
+                placeholder: "Выберите пользователя",
+                allowClear: true
+            });
+            $('#id_referred').select2({
+                placeholder: "Выберите пользователя",
+                allowClear: true
+            });
+        });
+    </script>
+</body>
+</html>
