@@ -138,7 +138,7 @@
 </head>
 <body>
     {% include 'admin_panel/navbar.html' %}
-    <h1>Детали задания: {{ task.name }}</h1>
+    <h1>Детали задания: {{ task.id }} | {{ task.name }}</h1>
 
     <div class="action-buttons">
         <button class="edit-btn" onclick="toggleEditForm()">Редактировать задание</button>
@@ -165,6 +165,7 @@
     </div>
 
     <div class="task-info">
+        <p><strong>Id:</strong> {{ task.id }}</p>
         <p><strong>Название:</strong> {{ task.name }}</p>
         <p><strong>Ссылка:</strong> <a href="{{ task.link }}" target="_blank">{{ task.link }}</a></p>
         <p><strong>Канал:</strong> {{ task.channels.name }}</p>

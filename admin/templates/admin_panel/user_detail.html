@@ -181,12 +181,27 @@
         </form>
     </div>
 
+    <div class="form-container">
+        <h2>Зачесть выполнение</h2>
+        <form method="post" action="{% url 'panel:approve_task' user.user_id %}">
+            {% csrf_token %}
+            <label for="task">Задание</label>
+            <select id="task" name="task" required>
+                <option value="">Выберите задание</option>
+                {% for task in all_tasks_without_completed %}
+                    <option value="{{ task.task.id }}">{{ task.task.id }} | {{ task.task.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Засчитать</button>
+        </form>
+    </div>
+
     <div class="tasks-section">
         <h2>Выполненные задания {{ completed_tasks|length }}</h2>
         <ul>
             {% for task in completed_tasks %}
                 <li class="{% if forloop.counter > 2 %}hidden-task{% endif %}">
-                    {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
+                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
                     <br>
                     <a href="{% url 'panel:user_task_detail' task.id %}">Перейти к деталям выполнения</a>
                 </li>
@@ -204,7 +219,7 @@
         <ul>
             {% for task in pending_tasks %}
                 <li class="{% if forloop.counter > 2 %}hidden-task{% endif %}">
-                    {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
+                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
                     <br>
                     <a href="{% url 'panel:check_task' task.id %}">Проверить</a>
                 </li>
@@ -222,7 +237,7 @@
         <ul>
             {% for task in rejected_tasks %}
                 <li class="{% if forloop.counter > 2 %}hidden-task{% endif %}">
-                    {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
+                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
                     <br>
                     <strong>Причина:</strong> {{ task.feedback }}
                     <br>
@@ -242,7 +257,7 @@
         <ul>
             {% for task in missed_tasks %}
                 <li class="{% if forloop.counter > 2 %}hidden-task{% endif %}">
-                    {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
+                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
                 </li>
             {% empty %}
                 <li>Нет пропущенных заданий.</li>

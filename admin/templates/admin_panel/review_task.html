@@ -80,6 +80,7 @@
     {% include 'admin_panel/navbar.html' %}
     <h1>Проверка задания</h1>
     <div class="task-details">
+        <p><strong>Id:</strong> {{ task_data.task.id }}</p>
         <p><strong>Название задания:</strong> {{ task_data.task.name }}</p>
         <p><strong>Канал:</strong> {{ task_data.task.channels.name }}</p>
         <p><strong>Ссылка на канал:</strong> <a href="{{ task_data.task.link }}" target="_blank">{{ task_data.task.link }}</a></p>
@@ -88,7 +89,12 @@
         <p><strong>Пользователь:</strong> @{{ task_data.user.username }} (ID: {{ task_data.user.user_id }})</p>
         <p><strong>Статус:</strong> {{ task_data.status }}</p>
         <p><strong>Скриншот пользователя:</strong></p>
-        <img src="{{ task_data.screenshot.url }}" alt="Скриншот задания">
+        {% if task_data.screenshot %}
+            <img src="{{ task_data.screenshot.url }}" alt="Скриншот задания">
+        {% else %}
+            Нет данных
+        {% endif %}
+        
     </div>
 
     <div class="form-container">

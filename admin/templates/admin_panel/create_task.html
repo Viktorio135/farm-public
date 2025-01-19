@@ -66,8 +66,13 @@
             {% csrf_token %}
             <label for="channel_name">Название канала:</label>
             <input type="text" id="channel_name" name="channel_name" required>
-            {% if errors.channel_name %}
+            {% if errors.name %}
                 <div class="error">{{ errors.channel_name }}</div>
+            {% endif %}
+            <label for="id">Id:</label>
+            <input type="number" id="id" name="id">
+            {% if errors.id %}
+                <div class="error">{{ errors.id }}</div>
             {% endif %}
             <label for="channels">Канал:</label>
             <select id="channels" name="channels" required>
@@ -82,7 +87,7 @@
 
             <label for="channel_link">Ссылка на канал:</label>
             <input type="url" id="channel_link" name="channel_link" required>
-            {% if errors.channel_link %}
+            {% if errors.link %}
                 <div class="error">{{ errors.channel_link }}</div>
             {% endif %}
 
@@ -114,3 +119,5 @@
     </div>
 </body>
 </html>
+
+

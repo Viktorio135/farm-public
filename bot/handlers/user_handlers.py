@@ -19,41 +19,48 @@ router = Router()
 
 async def listen_to_websocket(bot: Bot):
     uri = "ws://127.0.0.1:8000/ws/notifications/"
-    async with websockets.connect(uri) as websocket:
-        print("Бот подключился к WebSocket")
-        while True:
-            try:
-                # Ожидаем сообщение от бэкенда
-                message = await websocket.recv()
 
-                # Преобразуем сообщение в словарь
-                data = json.loads(message)
+    while True:  # Бесконечный цикл для переподключения
+        try:
+            async with websockets.connect(uri) as websocket:
+                print("Бот подключился к WebSocket")
+                while True:
+                    try:
+                        # Ожидаем сообщение от бэкенда
+                        message = await websocket.recv()
 
-                # Извлекаем JSON-строку из ключа 'message'
-                data = data['message']
+                        # Преобразуем сообщение в словарь
+                        data = json.loads(message)
 
-                # Преобразуем JSON-строку в словарь
-                
+                        # Извлекаем JSON-строку из ключа 'message'
+                        data = data['message']
 
-                # Теперь parsed_data — это словарь с данными
-                if 'action' in data:
-                    data = json.loads(data)
-                    if data['action'] == 'get_channel_members_count':
-                        members = await get_channel_members_count(int(data['channel_id']), bot)
-                        await websocket.send(json.dumps({
-                            'action': 'channel_members_count',
-                            'members_count': str(members),
-                        }))
-                else:
+                        # Теперь parsed_data — это словарь с данными
+                        if 'action' in data:
+                            data = json.loads(data)
+                            if data['action'] == 'get_channel_members_count':
+                                members = await get_channel_members_count(int(data['channel_id']), bot)
+                                await websocket.send(json.dumps({
+                                    'action': 'channel_members_count',
+                                    'members_count': str(members),
+                                }))
+                        else:
+                            chat_id = data['chat_id']
+                            text = data['text']
 
-                    chat_id = data['chat_id']
-                    text = data['text']
+                            # Отправляем уведомление пользователю
+                            await bot.send_message(chat_id=chat_id, text=text)
+                    except websockets.ConnectionClosed as e:
+                        print(f"Соединение закрыто: {e}")
+                        break  # Выходим из внутреннего цикла и пытаемся переподключиться
+                    except Exception as e:
+                        print(f"Ошибка: {e}")
+                        break  # Выходим из внутреннего цикла и пытаемся переподключиться
 
-                    # Отправляем уведомление пользователю
-                    await bot.send_message(chat_id=chat_id, text=text)
-            except Exception as e:
-                print(f"Ошибка: {e}")
-                break
+        except Exception as e:
+            print(f"Ошибка подключения к WebSocket: {e}")
+            print("Повторная попытка подключения через 5 секунд...")
+            await asyncio.sleep(5)  # Ждем 5 секунд перед повторной попыткой
 
 
 async def get_channel_members_count(channel_id: str, bot: Bot) -> int:

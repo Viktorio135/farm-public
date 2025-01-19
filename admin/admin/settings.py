@@ -139,7 +139,8 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute='*/1'),  # Запускать каждую минуту
     },
 }
-
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = 'panel:index'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Управление папкой: {{ folder.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .user-list {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto 20px;
+        }
+        .user-list h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .user-list ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .user-list ul li {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
+        .user-list ul li strong {
+            color: #007bff;
+        }
+        .add-user-form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto 20px;
+        }
+        .add-user-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .add-user-form select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .add-user-form button {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            margin-right: 10px;
+        }
+        .add-user-form button.remove-btn {
+            background-color: #dc3545;
+        }
+        .add-user-form button:hover {
+            background-color: #218838;
+        }
+        .add-user-form button.remove-btn:hover {
+            background-color: #c82333;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #007bff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .back-link:hover {
+            color: #0056b3;
+        }
+        .create-btn {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    {% include 'admin_panel/navbar.html' %}
+    <h1>Управление папкой: {{ folder.name }}</h1>
+    <button class="create-btn" onclick="window.location.href='{% url "panel:folder_delete" folder.id %}'">Удалить</button>
+
+    <div class="user-list">
+        <h2>Пользователи в папке</h2>
+        <ul>
+            {% for folder_user in users_in_folder %}
+            <li>
+                <a href="{% url "panel:user_detail" folder_user.user.user_id %}">{{ folder_user.user.username }} (ID: {{ folder_user.user.user_id }})</a>
+            </li>
+            {% empty %}
+            <li>Нет пользователей в папке.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="add-user-form">
+        <h2>Добавить пользователей</h2>
+        <form method="post" action="{% url 'panel:folder_detail' folder.id %}">
+            {% csrf_token %}
+            <label for="users">Выберите пользователей:</label>
+            <select id="users" name="users" multiple required>
+                {% for user in users_not_in_folder %}
+                    <option value="{{ user.user_id }}">{{ user.username }} (ID: {{ user.user_id }})</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Добавить выбранных</button>
+        </form>
+    </div>
+
+    <div class="add-user-form">
+        <h2>Исключить пользователей</h2>
+        <form method="post" action="{% url 'panel:folder_remove_users' folder.id %}">
+            {% csrf_token %}
+            <label for="users">Выберите пользователей:</label>
+            <select id="users" name="users" multiple required>
+                {% for folder_user in users_in_folder %}
+                    <option value="{{ folder_user.user.user_id }}">{{ folder_user.user.username }} (ID: {{ folder_user.user.user_id }})</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="remove-btn">Исключить выбранных</button>
+        </form>
+    </div>
+
+    <a href="{% url 'panel:folder_list' %}" class="back-link">Назад к списку папок</a>
+</body>
+</html>

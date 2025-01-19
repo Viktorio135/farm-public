@@ -80,6 +80,7 @@
     <h1>Пользователи</h1>
     <input type="text" id="search" onkeyup="searchUsers()" placeholder="Поиск по ID или имени пользователя...">
     <button class="create-btn" onclick="window.location.href='{% url "panel:users_statistics" %}'">Статистика пропусков</button>
+    <button class="create-btn" onclick="window.location.href='{% url "panel:folder_list" %}'">Папки</button>
     <p>Общее количество пользователей: <span id="totalUsers">{{ users|length }}</span></p>
     <table id="usersTable">
         <thead>

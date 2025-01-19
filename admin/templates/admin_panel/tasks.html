@@ -131,6 +131,7 @@
     <table id="tasksTable">
         <thead>
             <tr>
+                <th>Id</th>
                 <th>Название канала</th>
                 <th>Ссылка</th>
                 <th>Время добавления</th>
@@ -144,8 +145,9 @@
         <tbody>
             {% for task in tasks %}
                 <tr data-href="{% url "panel:task_detail" task.id %}">
-                    <td>{{ task.channel_name }}</td>
-                    <td><a href="{{ task.channel_link }}" target="_blank">{{ task.channel_link }}</a></td>
+                    <td>{{ task.id }}</td>
+                    <td>{{ task.name }}</td>
+                    <td><a href="{{ task.link }}" target="_blank">{{ task.link }}</a></td>
                     <td>{{ task.start_time }}</td>
                     <td>{{ task.end_time }}</td>
                     <td>{{ task.required_subscriptions }}</td>
