@@ -1,4 +1,6 @@
 from django.db import models
+from datetime import timedelta
+
 
 
 
@@ -48,10 +50,24 @@ class Task(models.Model):
     channels = models.ForeignKey(Channel, blank=True, on_delete=models.CASCADE)
     example = models.ImageField(upload_to=examples_upload_path)
     start_time = models.DateTimeField(auto_now_add=True)
-    end_time = models.DateTimeField()
+    end_time = models.DateTimeField(null=True, blank=True)
+    reminder_start_time = models.DateTimeField(null=True, blank=True)  # Время начала рассылки
+    reminder_end_time = models.DateTimeField(null=True, blank=True) 
 
     def __str__(self):
         return self.name
+    
+    # def get_reminder_start_time(self):
+    #     # Если время начала рассылки не задано, возвращаем start_time + 6 дней
+    #     if self.reminder_start_time:
+    #         return self.reminder_start_time
+    #     return self.start_time + timedelta(days=6)
+
+    # def get_reminder_end_time(self):
+    #     # Если время окончания рассылки не задано, возвращаем start_time + 14 дней
+    #     if self.reminder_end_time:
+    #         return self.reminder_end_time
+    #     return self.start_time + timedelta(days=14)
 
 class UserTask(models.Model):
 
@@ -84,7 +100,8 @@ class Transaction(models.Model):
     TYPE_CHOISE = {
         'completed_task': 'выполненное задание',
         'manual_crediting': 'ручное зачисление',
-        'disbersement': 'выплата'
+        'disbersement': 'выплата',
+        'referral_bonus': 'реферальный бонус',
     }
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='users')

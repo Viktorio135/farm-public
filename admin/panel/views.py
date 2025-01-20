@@ -15,7 +15,7 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-
+from datetime import timedelta
 
 
 
@@ -112,6 +112,8 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
             'reward': request.POST.get('reward'),
             'end_time': request.POST.get('end_time'),
             'example': request.FILES.get('example'),
+            'reminder_start_time': request.POST.get('reminder_start_time'),  # Новое поле
+            'reminder_end_time': request.POST.get('reminder_end_time'),  # Новое поле
         }
 
         # Получаем объект канала
@@ -143,6 +145,16 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
 
         # Создаем задание асинхронно
         task_data = serializer.validated_data
+
+        if 'end_time' not in task_data or task_data['end_time'] is None:
+            task_data['end_time'] = timezone.now() + timedelta(days=1)
+
+        if 'reminder_start_time' not in task_data or task_data['reminder_start_time'] is None:
+            task_data['reminder_start_time'] = timezone.now() + timedelta(days=6)
+
+        if 'reminder_end_time' not in task_data or task_data['reminder_end_time'] is None:
+            task_data['reminder_end_time'] = timezone.now() + timedelta(days=14)
+
         task = await sync_to_async(Task.objects.create)(
             id=task_data.get('id'),  # Используем указанный ID или None (автогенерация)
             name=task_data['name'],
@@ -152,6 +164,8 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
             reward=task_data['reward'],
             end_time=task_data['end_time'],
             example=task_data['example'],
+            reminder_start_time=task_data.get('reminder_start_time'),  # Новое поле
+            reminder_end_time=task_data.get('reminder_end_time'),  # Новое поле
             status='1'  # По умолчанию задание активно
         )
 
@@ -240,6 +254,8 @@ class EditTaskView(AsyncLoginRequiredMixin, View):
         task.required_subscriptions = int(request.POST.get('required_subscriptions'))
         task.reward = float(request.POST.get('reward'))
         task.end_time = request.POST.get('end_time')
+        task.reminder_start_time = request.POST.get('reminder_start_time')
+        task.reminder_end_time = request.POST.get('reminder_end_time')
 
         await sync_to_async(task.save)()
         return redirect('panel:task_detail', task_id=task.id)
@@ -251,6 +267,7 @@ class CompleteTaskView(AsyncLoginRequiredMixin, View):
 
         # Меняем статус задания на "архив"
         task.status = '0'
+        task.end_time = timezone.now()
         await sync_to_async(task.save)()
 
         return redirect('panel:task_detail', task_id=task.id)
@@ -712,6 +729,10 @@ class PayoutView(View):
                             channels_total[channel] += 1
 
 
+        # Сначала соберем всех пользователей и их заработки
+        all_ref = await sync_to_async(list)(Referral.objects.all())
+
+
         # Получаем список всех папок
         folders = await sync_to_async(list)(Folder.objects.all())
 
@@ -729,7 +750,17 @@ class PayoutView(View):
                         )
                     )
                 )
-            )
+            )       
+            for ref_user in all_ref:
+                referrer = await sync_to_async(lambda: ref_user.referrer)()
+                for f_user in folder_users:
+                    if f_user.total_balance is None:
+                        f_user.total_balance = 0.0
+                    if referrer == f_user:
+                        referred_user = await sync_to_async(lambda: ref_user.referred)()
+                        f_user.total_balance += (referred_user.balance * 0.10)
+                        f_user.balance += (referred_user.balance * 0.10)
+
 
             # Считаем общую сумму выплаты для папки
             total_payout = sum(user.total_balance or 0 for user in folder_users)
@@ -739,8 +770,9 @@ class PayoutView(View):
             folder_data.append({
                 'folder': folder,
                 'users': folder_users,
-                'total_payout': total_payout,  # Добавляем общую сумму выплаты
+                'total_payout': round(total_payout, 2),  # Добавляем общую сумму выплаты
             })
+        
 
         # Контекст для шаблона
         context = {
@@ -765,6 +797,21 @@ class ResetBalancesView(View):
         # Создаем новую выплату
         payout = await sync_to_async(Payout.objects.create)(is_paid=True)
 
+
+        all_ref = await sync_to_async(list)(Referral.objects.all())
+        for ref_user in all_ref:
+            referrer = await sync_to_async(lambda: ref_user.referrer)()
+            referred = await sync_to_async(lambda: ref_user.referred)()
+            reward = referred.balance * 0.10
+            referrer.balance += reward
+            await sync_to_async(Transaction.objects.create)(
+                user=referrer,
+                amount=reward,
+                type='referral_bonus',
+                comment=f'Реферальный бонус за заработок пользователя @{referred.username} (ID: {referred.user_id})'
+            )
+            await sync_to_async(referrer.save)()
+
         # Получаем всех пользователей
         users = await sync_to_async(list)(User.objects.all())
 
@@ -774,8 +821,6 @@ class ResetBalancesView(View):
             transactions = await sync_to_async(list)(
                 Transaction.objects.filter(
                     user=user,
-                    # timestamp__gte=last_payout_date if last_payout_date else timezone.make_aware(timezone.datetime(1970, 1, 1)),
-                    # timestamp__lte=current_date,
                     payout_id__isnull=True  # Только невыплаченные транзакции
                 )
             )
@@ -789,12 +834,11 @@ class ResetBalancesView(View):
                 transaction.task.reward for transaction in transactions
                 if transaction.type == 'completed_task' and hasattr(transaction, 'task')
             )
-            print(completed_tasks_reward)
 
             # Считаем сумму ручных зачислений
             manual_credits = sum(
                 transaction.amount for transaction in transactions
-                if transaction.type == 'manual_crediting' and not transaction.payout_id
+                if (transaction.type == 'manual_crediting' or transaction.type == 'referral_bonus') and not transaction.payout_id
             )
 
 
@@ -803,12 +847,14 @@ class ResetBalancesView(View):
                 f"Отчёт за {last_payout_date.strftime('%d.%m.%Y') if last_payout_date else 'начало'} - {current_date.strftime('%d.%m.%Y')}\n"
                 f"Количество верных скринов: {completed_tasks}\n"
                 f"На рассмотрении: {pending_tasks}\n"
-                f"Добавления: {manual_credits} ₽:\n\n"
+                f"Добавления: {manual_credits:.2f} ₽:\n\n"
             )
-            for index, tr in enumerate(transactions, start=1):
-                if tr.type == 'manual_crediting':
-                    message += f'{index}) {tr.amount}({tr.comment})\n'
-            message += f"\nК выплате: {user.balance} ₽"
+            m_index = 1
+            for tr in transactions:
+                if tr.type == 'manual_crediting' or tr.type == 'referral_bonus':
+                    message += f'{m_index}) {tr.amount:.2f}({tr.comment})\n'
+                    m_index += 1
+            message += f"\nК выплате: {user.balance:.2f} ₽"
 
             # Связываем транзакции с новой выплатой
             for transaction in transactions:
@@ -845,7 +891,6 @@ class SendPayoutInformation(AsyncLoginRequiredMixin, View):
         # Получаем текущую дату
         current_date = timezone.now()
 
-        # Создаем новую выплату
 
         # Получаем всех пользователей
         users = await sync_to_async(list)(User.objects.all())
@@ -875,6 +920,8 @@ class SendPayoutInformation(AsyncLoginRequiredMixin, View):
                 transaction.amount for transaction in transactions
                 if transaction.type == 'manual_crediting' and not transaction.payout_id
             )
+            
+            refs = await sync_to_async(list)(Referral.objects.filter(referrer=user))
 
             # Общая сумма к выплате
 
@@ -883,12 +930,22 @@ class SendPayoutInformation(AsyncLoginRequiredMixin, View):
                 f"Отчёт за {last_payout_date.strftime('%d.%m.%Y') if last_payout_date else 'начало'} - {current_date.strftime('%d.%m.%Y')}\n"
                 f"Количество верных скринов: {completed_tasks}\n"
                 f"На рассмотрении: {pending_tasks}\n"
-                f"Добавления: {manual_credits} ₽:\n\n"
+                f"Добавления: {manual_credits:.2f} ₽:\n\n"
             )
-            for index, tr in enumerate(transactions, start=1):
+            m_index = 1
+            for tr in transactions:
                 if tr.type == 'manual_crediting':
-                    message += f'{index}) {tr.amount}({tr.comment})\n'
-            message += f"\nК выплате: {user.balance} ₽"
+                    message += f'{m_index}) {tr.amount:.2f}({tr.comment})\n'
+                    m_index += 1
+            refs_total = 0
+            if refs:
+                for ref in refs:
+                    ref_user = await sync_to_async(lambda: ref.referred)()
+                    reward = ref_user.balance * 0.10
+                    refs_total += reward
+                    message += f'{m_index}) {reward:.2f} (Реферальный бонус за заработок пользователя @{ref_user.username} (ID: {ref_user.user_id})'
+                    m_index += 1
+            message += f"\nК выплате: {round(user.balance + refs_total, 2)} ₽"
 
 
             await send_websocket_notification(user.user_id, message)

@@ -1,6 +1,6 @@
-from datetime import timezone
+from datetime import timedelta, timezone
 from rest_framework import serializers
-from .models import Task, Channel
+from .models import Task
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -15,11 +15,26 @@ class TaskSerializer(serializers.ModelSerializer):
             'end_time',
             'example',
             'channels',
+            'reminder_start_time', 
+            'reminder_end_time'
         ]
         extra_kwargs = {
-            'id': {'required': False, 'allow_null': True}
+            'id': {'required': False, 'allow_null': True},
+            'end_time': {'required': False, 'allow_null': True},
+            'reminder_start_time': {'required': False, 'allow_null': True},
+            'reminder_end_time': {'required': False, 'allow_null': True}
         }
 
+    def to_internal_value(self, data):
+        # Преобразуем пустые строки в None для reminder_start_time и reminder_end_time
+        if 'reminder_start_time' in data and data['reminder_start_time'] == '':
+            data['reminder_start_time'] = None
+        if 'reminder_end_time' in data and data['reminder_end_time'] == '':
+            data['reminder_end_time'] = None
+        if 'end_time' in data and data['end_time'] == '':
+            data['end_time'] = None
+        return super().to_internal_value(data)
+    
     def validate_id(self, value):
         """Проверка уникальности ID только если оно указано."""
         if value is not None:  # Проверяем, только если ID указан

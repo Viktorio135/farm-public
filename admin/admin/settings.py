@@ -33,9 +33,13 @@ ALLOWED_HOSTS = []
 
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],  # Используйте localhost или IP-адрес
+        },
     },
 }
+
 
 ASGI_APPLICATION = 'admin.asgi.application'
 
@@ -137,6 +141,10 @@ CELERY_BEAT_SCHEDULE = {
     'update-task-status-every-minute': {
         'task': 'panel.tasks.update_task_status',
         'schedule': crontab(minute='*/1'),  # Запускать каждую минуту
+    },
+    'schedule-unsubscribe-reminders-every-1-minutes': {
+        'task': 'panel.tasks.schedule_unsubscribe_reminders',
+        'schedule': crontab(minute='*/1'),  # Запускать каждые 10 минут
     },
 }
 LOGIN_URL = '/login/'

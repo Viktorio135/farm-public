@@ -29,6 +29,8 @@ async def listen_to_websocket(bot: Bot):
                         # Ожидаем сообщение от бэкенда
                         message = await websocket.recv()
 
+                        print(message)
+
                         # Преобразуем сообщение в словарь
                         data = json.loads(message)
 
@@ -100,8 +102,6 @@ async def start(message: Message, bot: Bot):
             await message.answer(
 """Добро пожаловать!
 
-На нашу площадку ххх
-
 Скорее заходи в задания и зарабатывай деньги!
         """
                 , reply_markup=main_menu_keyboard())
@@ -109,21 +109,12 @@ async def start(message: Message, bot: Bot):
         await message.answer(
 """Добро пожаловать!
 
-На нашу площадку ххх
-
 Скорее заходи в задания и зарабатывай деньги!
 """
         , reply_markup=main_menu_keyboard())
 
-@router.message(F.text == "Баланс")
-async def show_balance(message: Message):
-    user = await get_user(message.from_user.id)
-    if user:
-        await message.answer(f"Ваш баланс: {user['balance']} руб.")
-    else:
-        await message.answer("Пользователь не найден.")
 
-@router.message(F.text == "Задания")
+@router.message(F.text == "сдать скрин")
 async def show_tasks(message: Message, bot: Bot):
     tasks = await get_tasks(message.from_user.id)
     channels = tasks['channels']

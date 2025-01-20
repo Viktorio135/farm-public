@@ -3,9 +3,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 def main_menu_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Баланс")],
-            [KeyboardButton(text="Задания")],
-            [KeyboardButton(text="История выполнений")]
+            [KeyboardButton(text="сдать скрин")],
         ],
         resize_keyboard=True
     )

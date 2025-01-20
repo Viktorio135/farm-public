@@ -91,7 +91,6 @@
                 <div class="error">{{ errors.channel_link }}</div>
             {% endif %}
 
-
             <label for="reward">Вознаграждение:</label>
             <input type="number" step="0.01" id="reward" name="reward" required>
             {% if errors.reward %}
@@ -105,9 +104,22 @@
             {% endif %}
 
             <label for="end_time">Время окончания задания:</label>
-            <input type="datetime-local" id="end_time" name="end_time" required>
+            <input type="datetime-local" id="end_time" name="end_time">
             {% if errors.end_time %}
                 <div class="error">{{ errors.end_time }}</div>
+            {% endif %}
+
+            <!-- Новые поля для времени начала и окончания рассылки -->
+            <label for="reminder_start_time">Время начала рассылки напоминаний:</label>
+            <input type="datetime-local" id="reminder_start_time" name="reminder_start_time">
+            {% if errors.reminder_start_time %}
+                <div class="error">{{ errors.reminder_start_time }}</div>
+            {% endif %}
+
+            <label for="reminder_end_time">Время окончания рассылки напоминаний:</label>
+            <input type="datetime-local" id="reminder_end_time" name="reminder_end_time">
+            {% if errors.reminder_end_time %}
+                <div class="error">{{ errors.reminder_end_time }}</div>
             {% endif %}
 
             {% if errors.non_field_errors %}
@@ -119,5 +131,3 @@
     </div>
 </body>
 </html>
-
-

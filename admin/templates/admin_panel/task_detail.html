@@ -159,7 +159,11 @@
             <label>Награда</label>
             <input type="number" name="reward" value="{{ task.reward }}" placeholder="Награда" step="0.01" required>
             <label>Время окончания</label>
-            <input type="datetime-local" name="end_time" value="{{ task.end_time|date:'Y-m-d\TH:i' }}" placeholder="Время окончания" required>
+            <input type="datetime-local" name="end_time" value="{{ task.end_time|date:'Y-m-d\TH:i' }}" placeholder="Время окончания">
+            <label>Время начала рассылки об отписке:</label>
+            <input type="datetime-local" name="reminder_start_time" value="{{ task.reminder_start_time|date:'Y-m-d\TH:i' }}" placeholder="Время начала рассылки об отписке">
+            <label>Время конца рассылки об отписке:</label>
+            <input type="datetime-local" name="reminder_end_time" value="{{ task.reminder_end_time|date:'Y-m-d\TH:i' }}" placeholder="Время окончания рассылки об отписке">
             <button type="submit">Сохранить изменения</button>
         </form>
     </div>
@@ -172,6 +176,8 @@
         <p><strong>Статус:</strong> {{ task.get_status_display }}</p>
         <p><strong>Время начала:</strong> {{ task.start_time }}</p>
         <p><strong>Время окончания:</strong> {{ task.end_time }}</p>
+        <p><strong>Время начала рассылки об отписке:</strong> {{ task.reminder_start_time }}</p>
+        <p><strong>Время конца рассылки об отписке:</strong> {{ task.reminder_end_time }}</p>
         <p><strong>Требуется подписчиков:</strong> {{ task.required_subscriptions }}</p>
         <p><strong>Награда:</strong> {{ task.reward }} руб.</p>
         <p><strong>Пример:</strong> <a href="{{ task.example.url }}" target="_blank">Посмотреть пример</a></p>
