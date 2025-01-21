@@ -448,7 +448,7 @@ class UserDetailView(AsyncLoginRequiredMixin, View):
             'rejected_tasks': rejected_tasks,
             'missed_tasks': missed_tasks,
             'transactions': transactions,
-            'completion_rate': completion_rate,
+            'completion_rate': round(completion_rate, 2),
             'all_tasks_without_completed': all_tasks_without_completed,
             'referrer_username': referrer_username,  # Имя пригласившего пользователя
             'referrals': referrals,
@@ -557,7 +557,7 @@ class ChannelDetailView(AsyncLoginRequiredMixin, View):
             percent = (completed_rask / total_tasks) * 100
         else:
             percent = 100
-        return await sync_to_async(render)(request, 'admin_panel/channel_detail.html', {'channel': channel, 'percent': percent})
+        return await sync_to_async(render)(request, 'admin_panel/channel_detail.html', {'channel': channel, 'percent': round(percent, 2)})
 
 class EditChannelView(AsyncLoginRequiredMixin, View):
     async def post(self, request, channel_id):

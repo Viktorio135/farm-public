@@ -306,6 +306,8 @@
             {% for task in missed_tasks %}
                 <li class="{% if forloop.counter > 2 %}hidden-task{% endif %}">
                     {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
+                    <br>
+                    <a href="{% url 'panel:task_detail' task.task.id %}">Перейти к деталям задания</a>
                 </li>
             {% empty %}
                 <li>Нет пропущенных заданий.</li>
