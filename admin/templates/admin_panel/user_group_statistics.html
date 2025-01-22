@@ -13,11 +13,11 @@
             color: #333;
             text-align: center;
         }
-        .channel-selector {
+        .Groups-selector {
             margin-bottom: 20px;
             text-align: center;
         }
-        .channel-selector select {
+        .Groups-selector select {
             padding: 10px;
             border-radius: 5px;
             border: 1px solid #ccc;
@@ -72,11 +72,11 @@
     {% include 'admin_panel/navbar.html' %}
     <h1>Статистика пользователей по каналам</h1>
 
-    <div class="channel-selector">
+    <div class="Groups-selector">
         <select id="channelSelect">
-            <option value="">Выберите канал</option>
-            {% for channel in channels %}
-                <option value="{{ channel.id }}">{{ channel.name }}</option>
+            <option value="">Выберите группа</option>
+            {% for Groups in groups %}
+                <option value="{{ Groups.id }}">{{ Groups.name }}</option>
             {% endfor %}
         </select>
     </div>
@@ -174,7 +174,7 @@
             sortTable(5, false);  // Сортировка по шестому столбцу (пропущено подряд) в порядке убывания
         });
 
-        // Инициализация: скрываем всех пользователей, пока канал не выбран
+        // Инициализация: скрываем всех пользователей, пока группа не выбран
         filterUsersByChannel('');
 
         document.addEventListener("DOMContentLoaded", function() {

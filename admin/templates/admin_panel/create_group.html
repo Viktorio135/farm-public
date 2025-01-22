@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Создание канала</title>
+    <title>Создание группаа</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -57,16 +57,21 @@
 </head>
 <body>
     {% include 'admin_panel/navbar.html' %}
-    <h1>Создание канала</h1>
+    <h1>Создание группаа</h1>
     <div class="form-container">
-        <form method="post" action="{% url 'panel:create_channel' %}">
+        <form method="post" action="{% url 'panel:create_group' %}">
             {% csrf_token %}
-            <label for="name">Название канала:</label>
+            <label for="name">Название группы:</label>
             <input type="text" id="name" name="name" required>
             {% if errors.name %}
                 <div class="error">{{ errors.name }}</div>
             {% endif %}
-            <button type="submit">Создать канал</button>
+            <label for="chat_id">Chat ID:</label>
+            <input type="number" id="chat_id" name="chat_id" required>
+            {% if errors.chat_id %}
+                <div class="error">{{ errors.chat_id }}</div>
+            {% endif %}
+            <button type="submit">Создать группа</button>
         </form>
     </div>
 </body>

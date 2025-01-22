@@ -64,31 +64,41 @@
     <div class="form-container">
         <form method="post" action="{% url 'panel:create_task' %}" enctype="multipart/form-data">
             {% csrf_token %}
-            <label for="channel_name">Название канала:</label>
-            <input type="text" id="channel_name" name="channel_name" required>
+            <label for="name">Название</label>
+            <input type="text" id="name" name="name" required>
             {% if errors.name %}
-                <div class="error">{{ errors.channel_name }}</div>
+                <div class="error">{{ errors.name }}</div>
             {% endif %}
             <label for="id">Id:</label>
             <input type="number" id="id" name="id">
             {% if errors.id %}
                 <div class="error">{{ errors.id }}</div>
             {% endif %}
-            <label for="channels">Канал:</label>
-            <select id="channels" name="channels" required>
+            <label for="channel">Канал:</label>
+            <select id="channel" name="channel" required>
                 <option value="">Выберите канал</option>
                 {% for channel in channels %}
                     <option value="{{ channel.id }}">{{ channel.name }}</option>
                 {% endfor %}
             </select>
-            {% if errors.channels %}
-                <div class="error">{{ errors.channels }}</div>
+            {% if errors.channel %}
+                <div class="error">{{ errors.channel }}</div>
             {% endif %}
 
-            <label for="channel_link">Ссылка на канал:</label>
-            <input type="url" id="channel_link" name="channel_link" required>
+            <label for="groups">Группы:</label>
+            <select id="groups" name="groups" multiple required>
+                {% for group in groups %}
+                    <option value="{{ group.id }}">{{ group.name }}</option>
+                {% endfor %}
+            </select>
+            {% if errors.groups %}
+                <div class="error">{{ errors.groups }}</div>
+            {% endif %}
+
+            <label for="link">Ссылка:</label>
+            <input type="url" id="link" name="link" required>
             {% if errors.link %}
-                <div class="error">{{ errors.channel_link }}</div>
+                <div class="error">{{ errors.link }}</div>
             {% endif %}
 
             <label for="reward">Вознаграждение:</label>

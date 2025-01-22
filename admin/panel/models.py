@@ -21,13 +21,17 @@ class User(models.Model):
     def __str__(self):
         return self.username
 
+class Channels(models.Model):
+    name = models.CharField(max_length=200)
 
-class Channel(models.Model):
+class Groups(models.Model):
     name = models.CharField(max_length=200)
     chat_id = models.IntegerField()
 
     def __str__(self):
         return self.name[:50]+'...'
+
+
 
 
 class Task(models.Model):
@@ -47,7 +51,8 @@ class Task(models.Model):
     )
     required_subscriptions = models.IntegerField(blank=True, null=True)
     reward = models.FloatField()
-    channels = models.ForeignKey(Channel, blank=True, on_delete=models.CASCADE)
+    channel = models.ForeignKey(Channels, blank=True, on_delete=models.CASCADE)
+    groups = models.ManyToManyField(Groups, blank=True)
     example = models.ImageField(upload_to=examples_upload_path)
     start_time = models.DateTimeField(auto_now_add=True)
     end_time = models.DateTimeField(null=True, blank=True)
@@ -56,18 +61,7 @@ class Task(models.Model):
 
     def __str__(self):
         return self.name
-    
-    # def get_reminder_start_time(self):
-    #     # Если время начала рассылки не задано, возвращаем start_time + 6 дней
-    #     if self.reminder_start_time:
-    #         return self.reminder_start_time
-    #     return self.start_time + timedelta(days=6)
 
-    # def get_reminder_end_time(self):
-    #     # Если время окончания рассылки не задано, возвращаем start_time + 14 дней
-    #     if self.reminder_end_time:
-    #         return self.reminder_end_time
-    #     return self.start_time + timedelta(days=14)
 
 class UserTask(models.Model):
 

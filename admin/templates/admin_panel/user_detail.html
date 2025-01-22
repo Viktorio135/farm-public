@@ -249,7 +249,7 @@
         <ul>
             {% for task in completed_tasks %}
                 <li class="{% if forloop.counter > 2 %}hidden-task{% endif %}">
-                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
+                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.groups }}
                     <br>
                     <a href="{% url 'panel:user_task_detail' task.id %}">Перейти к деталям выполнения</a>
                 </li>
@@ -267,7 +267,7 @@
         <ul>
             {% for task in pending_tasks %}
                 <li class="{% if forloop.counter > 2 %}hidden-task{% endif %}">
-                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
+                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.groups }}
                     <br>
                     <a href="{% url 'panel:check_task' task.id %}">Проверить</a>
                 </li>
@@ -285,7 +285,7 @@
         <ul>
             {% for task in rejected_tasks %}
                 <li class="{% if forloop.counter > 2 %}hidden-task{% endif %}">
-                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
+                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.groups }}
                     <br>
                     <strong>Причина:</strong> {{ task.feedback }}
                     <br>
@@ -305,7 +305,7 @@
         <ul>
             {% for task in missed_tasks %}
                 <li class="{% if forloop.counter > 2 %}hidden-task{% endif %}">
-                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.channels }}
+                    {{ task.task.id }} | {{ task.task.name }} | {{ task.task.reward }} руб. | {{ task.task.groups }}
                     <br>
                     <a href="{% url 'panel:task_detail' task.task.id %}">Перейти к деталям задания</a>
                 </li>

@@ -1,9 +1,14 @@
-from datetime import timedelta, timezone
 from rest_framework import serializers
-from .models import Task
-
+from .models import Task, Groups
 
 class TaskSerializer(serializers.ModelSerializer):
+    # Поле groups принимает список идентификаторов групп
+    groups = serializers.PrimaryKeyRelatedField(
+        queryset=Groups.objects.all(),  # Указываем queryset для валидации
+        many=True,  # Разрешаем множественный выбор
+        required=True  # Поле обязательно
+    )
+
     class Meta:
         model = Task
         fields = [
@@ -14,7 +19,8 @@ class TaskSerializer(serializers.ModelSerializer):
             'reward',
             'end_time',
             'example',
-            'channels',
+            'channel',
+            'groups',
             'reminder_start_time', 
             'reminder_end_time'
         ]

@@ -24,7 +24,7 @@ from datetime import timedelta
 from .forms import FolderForm, FolderUserForm, ReferralForm
 from admin.queues import response_queue
 from .serializers import TaskSerializer
-from .models import Referral, User, Task, UserTask, Channel, Transaction, Folder, FolderUser, Payout
+from .models import Referral, User, Task, UserTask, Groups, Channels, Transaction, Folder, FolderUser, Payout
 
 
 
@@ -98,17 +98,19 @@ class IndexPageView(AsyncLoginRequiredMixin, View):
 class CreateTaskView(AsyncLoginRequiredMixin, View):
     async def get(self, request, *args, **kwargs):
         # Получаем список каналов асинхронно
-        channels = await sync_to_async(list)(Channel.objects.all())
-        context = {'channels': channels}
+        groups = await sync_to_async(list)(Groups.objects.all())
+        channels = await sync_to_async(list)(Channels.objects.all())
+        context = {'groups': groups, 'channels': channels}
         return await sync_to_async(render)(request, 'admin_panel/create_task.html', context)
     
     async def post(self, request, *args, **kwargs):
         # Собираем данные из формы
         data = {
             'id': request.POST.get('id') or None,  # Добавляем ID, если оно указано
-            'name': request.POST.get('channel_name'),
-            'link': request.POST.get('channel_link'),
-            'channels': request.POST.get('channels'),
+            'name': request.POST.get('name'),
+            'link': request.POST.get('link'),
+            'channel': request.POST.get('channel'),
+            'groups': request.POST.getlist('groups'),
             'reward': request.POST.get('reward'),
             'end_time': request.POST.get('end_time'),
             'example': request.FILES.get('example'),
@@ -118,18 +120,24 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
 
         # Получаем объект канала
         try:
-            channel = await sync_to_async(Channel.objects.get)(id=data['channels'])
-        except Channel.DoesNotExist:
+            channel = await sync_to_async(Channels.objects.get)(id=data['channel'])
+        except Channels.DoesNotExist:
             return await sync_to_async(render)(
                 request,
                 'admin_panel/create_task.html',
-                {'errors': {'channels': 'Канал не найден'}}
+                {'errors': {'channel': 'канал не найден'}}
             )
 
         # Получаем количество подписчиков канала
-        required_subscriptions = await get_channel_members_count(channel.chat_id)
-        required_subscriptions = ast.literal_eval(required_subscriptions)
-        data['required_subscriptions'] = len(required_subscriptions)
+        total_required_subscriptions = 0
+        required_subscriptions_list = []
+        for group in data['groups']:
+            db_group = await sync_to_async(Groups.objects.get)(id=group)
+            required_subscriptions = await get_channel_members_count(db_group.chat_id)
+            required_subscriptions = ast.literal_eval(required_subscriptions)
+            total_required_subscriptions += len(required_subscriptions)
+            required_subscriptions_list += required_subscriptions
+        data['required_subscriptions'] = total_required_subscriptions
 
         # Валидация данных с помощью сериализатора
         serializer = TaskSerializer(data=data)
@@ -137,10 +145,12 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
             await sync_to_async(serializer.is_valid)(raise_exception=True)
         except Exception as e:
             # Если есть ошибки, возвращаем форму с ошибками
+            gr = await sync_to_async(list)(Groups.objects.all())
+            ch = await sync_to_async(list)(Channels.objects.all())
             return await sync_to_async(render)(
                 request,
                 'admin_panel/create_task.html',
-                {'errors': e.detail, 'channels': await sync_to_async(list)(Channel.objects.all())}
+                {'errors': e.detail, 'groups': gr, 'channels': ch}
             )
 
         # Создаем задание асинхронно
@@ -158,7 +168,6 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
         task = await sync_to_async(Task.objects.create)(
             id=task_data.get('id'),  # Используем указанный ID или None (автогенерация)
             name=task_data['name'],
-            channels=task_data['channels'],
             link=task_data['link'],
             required_subscriptions=task_data['required_subscriptions'],
             reward=task_data['reward'],
@@ -166,11 +175,19 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
             example=task_data['example'],
             reminder_start_time=task_data.get('reminder_start_time'),  # Новое поле
             reminder_end_time=task_data.get('reminder_end_time'),  # Новое поле
-            status='1'  # По умолчанию задание активно
+            status='1',  # По умолчанию задание активно
+            channel=channel,  # Привязываем задачу к каналу
         )
 
+        # Получаем выбранные группы
+        group_ids = data['groups']
+        groups = await sync_to_async(list)(Groups.objects.filter(id__in=group_ids))
+
+        # Привязываем группы к задаче
+        await sync_to_async(task.groups.set)(groups)
+
         # Получаем пользователей, которые должны выполнить задание
-        user_ids = [int(user) for user in required_subscriptions]
+        user_ids = [int(user) for user in required_subscriptions_list]
         users = await sync_to_async(list)(User.objects.filter(user_id__in=user_ids))
 
         # Создаем записи UserTask для каждого пользователя
@@ -289,12 +306,12 @@ class CheckTaskView(AsyncLoginRequiredMixin, View):
         # Получаем UserTask с подгрузкой user и task
         user_tasks = await sync_to_async(UserTask.objects.select_related('user', 'task').filter)(status='pending')
 
-        # Получаем все каналы
-        channels = await sync_to_async(list)(Channel.objects.all())
+        # Получаем все группы
+        groups = await sync_to_async(list)(Groups.objects.all())
 
         # Добавляем данные в контекст
         context['user_tasks'] = user_tasks
-        context['channels'] = channels
+        context['groups'] = groups
 
         # Рендерим шаблон асинхронно
         return await sync_to_async(render)(request, 'admin_panel/check_tasks.html', context=context)
@@ -529,61 +546,96 @@ class ApproveTaskView(AsyncLoginRequiredMixin, View):
 
     
 
-
-class ChannelListView(AsyncLoginRequiredMixin, View):
-    async def get(self, request):
-        channels = await sync_to_async(list)(Channel.objects.all())
-        return await sync_to_async(render)(request, 'admin_panel/channels.html', {'channels': channels})
-    
-
 class CreateChannelView(AsyncLoginRequiredMixin, View):
     async def get(self, request):
         return await sync_to_async(render)(request, 'admin_panel/create_channel.html')
 
     async def post(self, request):
         name = request.POST.get('name')
-        chat_id = request.POST.get('chat_id')
 
-        # Создаем канал
-        await sync_to_async(Channel.objects.create)(name=name, chat_id=chat_id)
+        await sync_to_async(Channels.objects.create)(name=name)
+        
         return redirect('panel:channel_list')
+
+
+class ChannelListView(AsyncLoginRequiredMixin, View):
+    async def get(self, request):
+        channels = await sync_to_async(list)(Channels.objects.all())
+        return await sync_to_async(render)(request, 'admin_panel/channels.html', {'channels': channels})
+
 
 class ChannelDetailView(AsyncLoginRequiredMixin, View):
     async def get(self, request, channel_id):
-        channel = await sync_to_async(get_object_or_404)(Channel, id=channel_id)
-        total_tasks = await sync_to_async(UserTask.objects.filter(task__channels=channel).count)()
-        completed_rask = await sync_to_async(UserTask.objects.filter(task__channels=channel).exclude(status='missed').count)()
-        if total_tasks != 0:
-            percent = (completed_rask / total_tasks) * 100
-        else:
-            percent = 100
-        return await sync_to_async(render)(request, 'admin_panel/channel_detail.html', {'channel': channel, 'percent': round(percent, 2)})
-
-class EditChannelView(AsyncLoginRequiredMixin, View):
+        channel = await sync_to_async(get_object_or_404)(Channels, id=channel_id)
+        return await sync_to_async(render)(request, 'admin_panel/channel_detail.html', {'channel': channel})
+    
     async def post(self, request, channel_id):
-        channel = await sync_to_async(get_object_or_404)(Channel, id=channel_id)
-
-        # Обновляем данные канала
-        channel.name = request.POST.get('name')
-        channel.chat_id = request.POST.get('chat_id')
+        name = request.POST.get('channel_name')
+        channel = await sync_to_async(get_object_or_404)(Channels, id=channel_id)
+        channel.name = name
         await sync_to_async(channel.save)()
-        return redirect('panel:channel_detail', channel_id=channel.id)
+        return redirect('panel:channel_detail', channel_id=channel_id)
+    
 
 class DeleteChannelView(AsyncLoginRequiredMixin, View):
-    async def get(self, request, channel_id):
-        channel = await sync_to_async(get_object_or_404)(Channel, id=channel_id)
-        usertask = await sync_to_async(UserTask.objects.filter(task__channels=channel, status='pending').count)()
-        if usertask == 0:
-            await sync_to_async(channel.delete)()
+    async def post(self, request, channel_id):
+        channel = await sync_to_async(get_object_or_404)(Channels, id=channel_id)
+        await sync_to_async(channel.delete)()
         return redirect('panel:channel_list')
+
+
+
+
+
+
+class GroupListView(AsyncLoginRequiredMixin, View):
+    async def get(self, request):
+        groups = await sync_to_async(list)(Groups.objects.all())
+        return await sync_to_async(render)(request, 'admin_panel/groups.html', {'groups': groups})
+    
+
+class CreateGroupView(AsyncLoginRequiredMixin, View):
+    async def get(self, request):
+        return await sync_to_async(render)(request, 'admin_panel/create_group.html')
+
+    async def post(self, request):
+        name = request.POST.get('name')
+        chat_id = request.POST.get('chat_id')
+
+        # Создаем группа
+        await sync_to_async(Groups.objects.create)(name=name, chat_id=chat_id)
+        return redirect('panel:group_list')
+
+class GroupDetailView(AsyncLoginRequiredMixin, View):
+    async def get(self, request, channel_id):
+        group = await sync_to_async(get_object_or_404)(Groups, id=channel_id)
+        return await sync_to_async(render)(request, 'admin_panel/ group_detail.html', {'group': group})
+
+class EditGroupView(AsyncLoginRequiredMixin, View):
+    async def post(self, request, channel_id):
+        group = await sync_to_async(get_object_or_404)(Groups, id=channel_id)
+
+        # Обновляем данные канала
+        group.name = request.POST.get('name')
+        group.chat_id = request.POST.get('chat_id')
+        await sync_to_async(group.save)()
+        return redirect('panel:group_detail', channel_id=group.id)
+
+class DeleteGroupView(AsyncLoginRequiredMixin, View):
+    async def get(self, request, channel_id):
+        group = await sync_to_async(get_object_or_404)(Groups, id=channel_id)
+        usertask = await sync_to_async(UserTask.objects.filter(task__channels=group, status='pending').count)()
+        if usertask == 0:
+            await sync_to_async(group.delete)()
+        return redirect('panel:group_list')
     
 
 
 
-class UserChannelStatisticsView(AsyncLoginRequiredMixin, View):
+class UserGroupStatisticsView(AsyncLoginRequiredMixin, View):
     async def get(self, request):
         # Получаем список всех каналов
-        channels = await sync_to_async(list)(Channel.objects.all())
+        groups = await sync_to_async(list)(Groups.objects.all())
 
         # Получаем данные о всех пользователях и их статистике
         users = await sync_to_async(list)(
@@ -601,7 +653,7 @@ class UserChannelStatisticsView(AsyncLoginRequiredMixin, View):
         for user in users:
             # Получаем все задачи пользователя, отсортированные по времени окончания (от новых к старым)
             user_tasks = await sync_to_async(list)(
-                UserTask.objects.filter(user=user).select_related('task__channels').order_by('-task__end_time')
+                UserTask.objects.filter(user=user).select_related('task__groups').order_by('-task__end_time')
             )
 
             # Счетчик для количества пропущенных подряд
@@ -621,19 +673,19 @@ class UserChannelStatisticsView(AsyncLoginRequiredMixin, View):
 
         # Получаем список user_id для каждого канала
         channel_members = {}
-        for channel in channels:
-            user_ids = await get_channel_members_count(channel.chat_id)
+        for group in groups:
+            user_ids = await get_channel_members_count(group.chat_id)
             user_ids = ast.literal_eval(user_ids)  # Преобразуем строку в список
-            channel_members[channel.id] = [int(user_id) for user_id in user_ids]  # Преобразуем user_id в числа
+            channel_members[group.id] = [int(user_id) for user_id in user_ids]  # Преобразуем user_id в числа
 
         # Подготовка данных для шаблона
         context = {
-            'channels': channels,
+            'groups': groups,
             'users': users,
             'channel_members': channel_members,
         }
 
-        return await sync_to_async(render)(request, 'admin_panel/user_channel_statistics.html', context)
+        return await sync_to_async(render)(request, 'admin_panel/user_group_statistics.html', context)
     
 
 
@@ -704,29 +756,29 @@ class PayoutView(View):
 
         transactions = await sync_to_async(list)(Transaction.objects.all())
 
-        channels = await sync_to_async(list)(Channel.objects.all())
+        groups = await sync_to_async(list)(Groups.objects.all())
 
         # Получаем список всех каналов с количеством заданий, которые еще не были выплачены
         channels_with_tasks = await sync_to_async(list)(
-            Channel.objects.annotate(
+            Groups.objects.annotate(
                 tasks_list=Count('task')  # Аннотируем количество заданий для каждого канала
             ).prefetch_related('task_set')  # Используем prefetch_related для оптимизации запросов
         )
 
         channels_dict = {
-            channel.name: [task for task in channel.task_set.all()]
-            for channel in channels_with_tasks
+            groups.name: [task for task in groups.task_set.all()]
+            for groups in channels_with_tasks
         }
 
         channels_total = {}
-        for channel in channels_dict:
-            for task in channels_dict[channel]:
+        for groups in channels_dict:
+            for task in channels_dict[Groups]:
                 for transaction in transactions:
                     if (transaction.comment.endswith(f' {task.id}')) and (await sync_to_async(lambda: transaction.payout_id)() is None):
-                        if channel not in channels_total:
-                            channels_total[channel] = 1
+                        if groups not in channels_total:
+                            channels_total[groups] = 1
                         else:
-                            channels_total[channel] += 1
+                            channels_total[groups] += 1
 
 
         # Сначала соберем всех пользователей и их заработки
@@ -776,7 +828,7 @@ class PayoutView(View):
 
         # Контекст для шаблона
         context = {
-            'channels': channels,
+            'groups': groups,
             'channels_total': channels_total,
             'folders': folders,
             'folder_data': folder_data,

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Детали группы</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .Groups-info {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto 20px;
+        }
+        .Groups-info p {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        .Groups-info p strong {
+            color: #007bff;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #007bff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .back-link:hover {
+            color: #0056b3;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .action-buttons button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .edit-btn {
+            background-color: #ffc107;
+            color: #000;
+        }
+        .edit-btn:hover {
+            background-color: #e0a800;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            color: #fff;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+        .edit-form {
+            display: none;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto 20px;
+        }
+        .edit-form input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .edit-form button {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .edit-form button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    {% include 'admin_panel/navbar.html' %}
+    <h1>Детали группы: {{ group.name }}</h1>
+
+    <div class="action-buttons">
+        <button class="edit-btn" onclick="toggleEditForm()">Редактировать группу</button>
+        <button class="delete-btn" onclick="deleteGroup()">Удалить группу</button>
+    </div>
+
+    <div class="edit-form" id="editForm">
+        <h2>Редактирование группы</h2>
+        <form method="post" action="{% url 'panel:edit_group' group.id %}">
+            {% csrf_token %}
+            <label>Название</label>
+            <input type="text" name="name" value="{{ group.name }}" placeholder="Название группаа" required>
+            <label>Chat ID</label>
+            <input type="number" name="chat_id" value="{{ group.chat_id }}" placeholder="Chat ID" required>
+            <button type="submit">Сохранить изменения</button>
+        </form>
+    </div>
+
+    <div class="group-info">
+        <p><strong>Название:</strong> {{ group.name }}</p>
+        <p><strong>Chat ID:</strong> {{ group.chat_id }}</p>
+    </div>
+
+    <a href="{% url 'panel:group_list' %}" class="back-link">Назад к списку групп</a>
+
+    <script>
+        // Показать/скрыть форму редактирования
+        function toggleEditForm() {
+            const editForm = document.getElementById("editForm");
+            editForm.style.display = editForm.style.display === "none" ? "block" : "none";
+        }
+
+        // Удалить группа
+        function deleteGroup() {
+            if (confirm("Вы уверены, что хотите удалить группу?")) {
+                window.location.href = "{% url 'panel:delete_group' group.id %}";
+            }
+        }
+    </script>
+</body>
+</html>

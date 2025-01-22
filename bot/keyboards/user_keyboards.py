@@ -8,13 +8,13 @@ def main_menu_keyboard():
         resize_keyboard=True
     )
 
-def channels_keyboard(channels):
+def channels_keyboard(groups):
     keyboard = InlineKeyboardMarkup(row_width=1, inline_keyboard=[
         [InlineKeyboardButton(
-            text=f"{channel['name']}",
-            callback_data=f"channel_{channel['id']}"
+            text=f"{group['channel']}",
+            callback_data=f"channel_{group['id']}"
         )]
-        for channel in channels
+        for group in groups
     ])
 
     return keyboard

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Управление каналами</title>
+    <title>Управление группами</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -108,19 +108,21 @@
 </head>
 <body>
     {% include 'admin_panel/navbar.html' %}
-    <h1>Каналы</h1>
+    <h1>группы</h1>
 
-    <button class="create-btn" onclick="window.location.href='{% url "panel:create_channel" %}'">Создать канал</button>
-    <table id="channelsTable">
+    <button class="create-btn" onclick="window.location.href='{% url "panel:create_group" %}'">Создать группу</button>
+    <table id="tasksTable">
         <thead>
             <tr>
-                <th>Название канала</th>
+                <th>Название группы</th>
+                <th>Chat id</th>
             </tr>
         </thead>
         <tbody>
-            {% for channel in channels %}
-                <tr data-href="{% url "panel:channel_detail" channel.id %}">
-                    <td>{{ channel.name }}</td>
+            {% for group in groups %}
+                <tr data-href="{% url "panel:group_detail" group.id %}">
+                    <td>{{ group.name }}</td>
+                    <td>{{ group.chat_id }}</td>
                 </tr>
             {% endfor %}
         </tbody>
@@ -129,7 +131,7 @@
     <script>
         // Переход на страницу задания при клике на строку
         document.addEventListener("DOMContentLoaded", function() {
-            const rows = document.querySelectorAll("#channelsTable tbody tr");
+            const rows = document.querySelectorAll("#tasksTable tbody tr");
             rows.forEach(row => {
                 row.addEventListener("click", function() {
                     const url = row.getAttribute("data-href");

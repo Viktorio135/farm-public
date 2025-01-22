@@ -4,13 +4,12 @@ from adrf.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from asgiref.sync import sync_to_async
-from rest_framework.decorators import action
 from django.core.files.storage import default_storage
 
 
 
-from panel.models import Task, User, Transaction, UserTask, Channel
-from .serializers import UserSerializer, TaskSerializer, UserTaskSerializer, ChannelsSerializer
+from panel.models import Task, User, Transaction, UserTask, Groups, Channels
+from .serializers import UserSerializer, TaskSerializer, UserTaskSerializer, GroupsSerializer
 
 
 class UserAddView(APIView):
@@ -62,15 +61,15 @@ class TaskListView(APIView):
         # Исключаем выполненные задания
         available_tasks = [task for task in all_tasks if task.id not in user_tasks]
 
-        channels = await sync_to_async(list)(Channel.objects.all())
+        groups = await sync_to_async(list)(Groups.objects.all())
         # Сериализуем задания
         task_serializer = TaskSerializer(available_tasks, many=True)
-        channel_serializer = ChannelsSerializer(channels, many=True)
+        group_serializer = GroupsSerializer(groups, many=True)
         tasks_data = await sync_to_async(lambda: task_serializer.data)()
-        channels_data = await sync_to_async(lambda: channel_serializer.data)()
+        groups_data = await sync_to_async(lambda: group_serializer.data)()
         response = {
             'tasks': tasks_data,
-            'channels': channels_data,
+            'groups': groups_data,
         }
         return Response(response)
     
@@ -88,7 +87,7 @@ class SendConfirmationView(APIView):
                 os.mkdir(dir_path)
             file_name = default_storage.save(f"{dir_path}/{file.name}", file)
             user = await sync_to_async(User.objects.get)(user_id=user_id)
-            task = await sync_to_async(Task.objects.get)(channels=task_id, status='1')
+            task = await sync_to_async(Task.objects.get)(id=task_id, status='1')
 
             usertask = await sync_to_async(UserTask.objects.filter(
                 user=user,
@@ -129,8 +128,8 @@ class UserTaskView(APIView):
 class ChannelsListView(APIView):
     async def get(self, request):
         try:
-            channels = await sync_to_async(list)(Channel.objects.all())
-            serializer = ChannelsSerializer(channels, many=True)
+            groups = await sync_to_async(list)(Groups.objects.all())
+            serializer = GroupsSerializer(groups, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except:
             return Response(status=status.HTTP_503_SERVICE_UNAVAILABLE)

@@ -75,13 +75,13 @@
 <body>
     {% include 'admin_panel/navbar.html' %}
     <h1>Архивные задания</h1>
-    <input type="text" id="search" onkeyup="searchTasks()" placeholder="Поиск по названию канала...">
+    <input type="text" id="search" onkeyup="searchTasks()" placeholder="Поиск по названию группаа...">
 
     <table id="tasksTable">
         <thead>
             <tr>
                 <th>Id</th>
-                <th>Название канала</th>
+                <th>Название группаа</th>
                 <th>Ссылка</th>
                 <th>Время добавления</th>
                 <th>Время окончания</th>
@@ -125,13 +125,13 @@
             const tr = table.getElementsByTagName("tr");
 
             for (let i = 1; i < tr.length; i++) { // Начинаем с 1, чтобы пропустить заголовок
-                const tdChannelName = tr[i].getElementsByTagName("td")[0]; // Колонка названия канала
+                const tdChannelName = tr[i].getElementsByTagName("td")[0]; // Колонка названия группаа
                 let match = false;
 
                 if (tdChannelName) {
                     const channelNameText = tdChannelName.textContent || tdChannelName.innerText;
 
-                    // Поиск по названию канала
+                    // Поиск по названию группаа
                     if (channelNameText.toUpperCase().indexOf(filter) > -1) {
                         match = true;
                     }

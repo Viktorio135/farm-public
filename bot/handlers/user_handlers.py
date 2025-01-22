@@ -87,10 +87,10 @@ class TaskStates(StatesGroup):
 async def start(message: Message, bot: Bot):
     user = await get_user(message.from_user.id)
     if not user:
-        channels = await get_channels()
+        groups = await get_channels()
         in_channels = False
-        for channel in channels:
-            members = await get_chat_members(int(channel['chat_id']))
+        for Groups in groups:
+            members = await get_chat_members(int(Groups['chat_id']))
             if str(message.from_user.id) in members:
                 in_channels = True
                 break
@@ -117,24 +117,25 @@ async def start(message: Message, bot: Bot):
 @router.message(F.text == "сдать скрин")
 async def show_tasks(message: Message, bot: Bot):
     tasks = await get_tasks(message.from_user.id)
-    channels = tasks['channels']
+    groups = tasks['groups']
     tasks = tasks["tasks"]
     
-    if tasks and channels:
+    if tasks and groups:
         user_permisions = []
-        for channel in channels:
-            chat_member = await bot.get_chat_member(channel['chat_id'], message.from_user.id)
-
-
-            if chat_member:
-                user_permisions.append(channel)
+        for group in groups:
+            chat_member = await bot.get_chat_member(group['chat_id'], message.from_user.id)
+            if chat_member and chat_member.status != 'left' and chat_member.status != 'kicked':
+                user_permisions.append(group)
         if user_permisions:
             avalible_channels = []
-            for channel in user_permisions:
+            for group in user_permisions:
                 for task in tasks:
-                    if int(channel['id']) == int(task['channels']):
-                        avalible_channels.append(channel)
-            if avalible_channels:            
+                    for gr_task in task['groups']:
+                        if int(group['chat_id']) == int(gr_task['chat_id']):
+                            if {'channel': task['channel']['name'], 'id': task['id']} not in avalible_channels:
+                                avalible_channels.append({'channel': task['channel']['name'], 'id': task['id']})
+                            break
+            if avalible_channels:  
                 await message.answer(
                     "Список доступных каналов:",
                     reply_markup=channels_keyboard(avalible_channels)
@@ -153,6 +154,7 @@ async def show_tasks(message: Message, bot: Bot):
 @router.callback_query(F.data.startswith("channel_"))
 async def complete_task(callback: CallbackQuery, state: FSMContext):
     task_id = int(callback.data.split("_")[1])
+    print(task_id)
     await create_user_task(callback.from_user.id, task_id)
     await callback.message.answer("Прикрепите скриншот подтверждения:")
     await state.set_state(TaskStates.SCREENSHOT)  # Устанавливаем состояние

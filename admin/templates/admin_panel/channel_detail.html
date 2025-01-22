@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Детали канала</title>
+    <title>Управление каналом: {{ channel.name }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -21,12 +21,52 @@
             max-width: 800px;
             margin: 0 auto 20px;
         }
-        .channel-info p {
-            margin: 10px 0;
+        .channel-info h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .channel-info label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .channel-info input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
             font-size: 16px;
         }
-        .channel-info p strong {
-            color: #007bff;
+        .channel-info button {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            margin-right: 10px;
+        }
+        .channel-info button:hover {
+            background-color: #218838;
+        }
+        .statistics {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto 20px;
+        }
+        .statistics h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .statistics p {
+            margin: 0;
+            padding: 5px 0;
         }
         .back-link {
             display: block;
@@ -39,103 +79,46 @@
         .back-link:hover {
             color: #0056b3;
         }
-        .action-buttons {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-        .action-buttons button {
-            padding: 10px 20px;
+        .create-btn {
+            background-color: #28a745;
+            color: #fff;
             border: none;
+            padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s ease;
-        }
-        .edit-btn {
-            background-color: #ffc107;
-            color: #000;
-        }
-        .edit-btn:hover {
-            background-color: #e0a800;
-        }
-        .delete-btn {
-            background-color: #dc3545;
-            color: #fff;
-        }
-        .delete-btn:hover {
-            background-color: #c82333;
-        }
-        .edit-form {
-            display: none;
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            max-width: 800px;
-            margin: 0 auto 20px;
-        }
-        .edit-form input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        .edit-form button {
-            background-color: #007bff;
-            color: #fff;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .edit-form button:hover {
-            background-color: #0056b3;
+            margin-right: 10px;
         }
     </style>
 </head>
 <body>
     {% include 'admin_panel/navbar.html' %}
-    <h1>Детали канала: {{ channel.name }}</h1>
-
-    <div class="action-buttons">
-        <button class="edit-btn" onclick="toggleEditForm()">Редактировать канал</button>
-        <button class="delete-btn" onclick="deleteChannel()">Удалить канал</button>
-    </div>
-
-    <div class="edit-form" id="editForm">
-        <h2>Редактирование канала</h2>
-        <form method="post" action="{% url 'panel:edit_channel' channel.id %}">
+    <h1>Управление каналом: {{ channel.name }}</h1>
+    <form method="post" action="{% url "panel:delete_channel" channel.id %}">
+        {% csrf_token %}
+        <button type="submit" class="create-btn">Удалить канал</button>
+    </form>
+    <!-- Форма для изменения имени канала -->
+    <div class="channel-info">
+        <h2>Изменение имени канала</h2>
+        <form method="post" action="{% url 'panel:channel_detail' channel.id %}">
             {% csrf_token %}
-            <label>Название</label>
-            <input type="text" name="name" value="{{ channel.name }}" placeholder="Название канала" required>
-            <label>Chat ID</label>
-            <input type="number" name="chat_id" value="{{ channel.chat_id }}" placeholder="Chat ID" required>
-            <button type="submit">Сохранить изменения</button>
+            <label for="channel-name">Новое имя канала:</label>
+            <input type="text" id="channel-name" name="channel_name" value="{{ channel.name }}" required>
+            <button type="submit">Сохранить</button>
         </form>
     </div>
 
-    <div class="channel-info">
-        <p><strong>Название:</strong> {{ channel.name }}</p>
-        <p><strong>Chat ID:</strong> {{ channel.chat_id }}</p>
-        <p><strong>Процент выполнений:</strong> {{ percent }}%</p>
+    <!-- Статистика канала -->
+    <div class="statistics">
+        <h2>Статистика канала</h2>
+        <p><strong>Количество подписчиков:</strong> </p>
+        <p><strong>Количество постов:</strong> </p>
+        <p><strong>Дата создания:</strong> </p>
     </div>
 
-    <a href="{% url 'panel:channel_list' %}" class="back-link">Назад к списку каналов</a>
+    <!-- Кнопка удаления канала -->
 
-    <script>
-        // Показать/скрыть форму редактирования
-        function toggleEditForm() {
-            const editForm = document.getElementById("editForm");
-            editForm.style.display = editForm.style.display === "none" ? "block" : "none";
-        }
 
-        // Удалить канал
-        function deleteChannel() {
-            if (confirm("Вы уверены, что хотите удалить канал?")) {
-                window.location.href = "{% url 'panel:delete_channel' channel.id %}";
-            }
-        }
-    </script>
 </body>
 </html>

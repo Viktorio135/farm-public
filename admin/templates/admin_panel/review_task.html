@@ -82,8 +82,8 @@
     <div class="task-details">
         <p><strong>Id:</strong> {{ task_data.task.id }}</p>
         <p><strong>Название задания:</strong> {{ task_data.task.name }}</p>
-        <p><strong>Канал:</strong> {{ task_data.task.channels.name }}</p>
-        <p><strong>Ссылка на канал:</strong> <a href="{{ task_data.task.link }}" target="_blank">{{ task_data.task.link }}</a></p>
+        <p><strong>группа:</strong> {{ task_data.task.groups.name }}</p>
+        <p><strong>Ссылка на группа:</strong> <a href="{{ task_data.task.link }}" target="_blank">{{ task_data.task.link }}</a></p>
         <p><strong>Пример скриншота:</strong></p>
         <img src="{{ task_data.task.example.url }}" alt="Пример скриншота задания">
         <p><strong>Пользователь:</strong> @{{ task_data.user.username }} (ID: {{ task_data.user.user_id }})</p>

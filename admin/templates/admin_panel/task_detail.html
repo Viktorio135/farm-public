@@ -153,7 +153,7 @@
             <label>Название</label>
             <input type="text" name="name" value="{{ task.name }}" placeholder="Название задания" required>
             <label>Ссылка</label>
-            <input type="text" name="link" value="{{ task.link }}" placeholder="Ссылка на канал" required>
+            <input type="text" name="link" value="{{ task.link }}" placeholder="Ссылка на группа" required>
             <label>Требуется выполнений</label>
             <input type="number" name="required_subscriptions" value="{{ task.required_subscriptions }}" placeholder="Требуется подписчиков" required>
             <label>Награда</label>
@@ -172,7 +172,7 @@
         <p><strong>Id:</strong> {{ task.id }}</p>
         <p><strong>Название:</strong> {{ task.name }}</p>
         <p><strong>Ссылка:</strong> <a href="{{ task.link }}" target="_blank">{{ task.link }}</a></p>
-        <p><strong>Канал:</strong> {{ task.channels.name }}</p>
+        <p><strong>группа:</strong> {{ task.groups.name }}</p>
         <p><strong>Статус:</strong> {{ task.get_status_display }}</p>
         <p><strong>Время начала:</strong> {{ task.start_time }}</p>
         <p><strong>Время окончания:</strong> {{ task.end_time }}</p>
