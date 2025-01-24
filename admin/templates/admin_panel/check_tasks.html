@@ -77,11 +77,11 @@
     {% include 'admin_panel/navbar.html' %}
     <h1>Проверка заданий</h1>
     <div class="form-container">
-        <label for="Groups">Выберите группа:</label>
+        <label for="Groups">Выберите канал:</label>
         <select id="Groups" name="Groups">
-            <option value="" selected>Все группаы</option>
-            {% for Groups in groups %}
-                <option value="{{ Groups.id }}">{{ Groups.name }}</option>
+            <option value="" selected>Все каналы</option>
+            {% for channel in channels %}
+                <option value="{{ channel.id }}">{{ channel.name }}</option>
             {% endfor %}
         </select>
     </div>
@@ -91,7 +91,7 @@
             <thead>
                 <tr>
                     <th>Название задания</th>
-                    <th>Основной группа</th>
+                    <th>Основной канал</th>
                     <th>Ссылка на группа</th>
                     <th>User id</th>
                     <th>Username</th>
@@ -99,9 +99,9 @@
             </thead>
             <tbody id="tasks-list">
                 {% for completed_task in user_tasks %}
-                    <tr data-task-id="{{ completed_task.id }}" data-Groups-id="{{ completed_task.task.groups.id }}">
+                    <tr data-task-id="{{ completed_task.id }}" data-Groups-id="{{ completed_task.task.channel.id }}">
                         <td>{{ completed_task.task.name }}</td>
-                        <td>{{ completed_task.task.groups.name }}</td>
+                        <td>{{ completed_task.task.channel.name }}</td>
                         <td><a href="{{ completed_task.task.link }}" target="_blank">{{ completed_task.task.link }}</a></td>
                         <td>{{ completed_task.user.user_id }}</td>
                         <td>@{{ completed_task.user.username }}</td>

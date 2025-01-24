@@ -11,7 +11,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 from services.task_service import get_tasks, create_user_task, send_confirmation, get_channels
 from services.user_service import get_user, create_user
-from keyboards.user_keyboards import main_menu_keyboard, channels_keyboard
+from keyboards.user_keyboards import cancel_keyboard, main_menu_keyboard, channels_keyboard
 from utils.get_members import get_chat_members
 
 router = Router()
@@ -97,7 +97,6 @@ async def start(message: Message, bot: Bot):
         if in_channels:
             avatar = await bot.get_user_profile_photos(message.from_user.id)
             avatar = avatar.total_count > 0
-            print(avatar)
             await create_user(message.from_user.id, message.from_user.username, avatar)
             await message.answer(
 """Добро пожаловать!
@@ -112,6 +111,19 @@ async def start(message: Message, bot: Bot):
 Скорее заходи в задания и зарабатывай деньги!
 """
         , reply_markup=main_menu_keyboard())
+
+
+
+@router.message(F.text.lower() == "отмена", TaskStates.SCREENSHOT)
+async def cancel_screenshot_upload(message: Message, state: FSMContext):
+    # Сбрасываем состояние
+    await state.clear()
+    # Отправляем сообщение с главным меню
+    await message.answer(
+        "Загрузка скриншота отменена.",
+        reply_markup=main_menu_keyboard()
+    )
+
 
 
 @router.message(F.text == "сдать скрин")
@@ -132,9 +144,18 @@ async def show_tasks(message: Message, bot: Bot):
                 for task in tasks:
                     for gr_task in task['groups']:
                         if int(group['chat_id']) == int(gr_task['chat_id']):
-                            if {'channel': task['channel']['name'], 'id': task['id']} not in avalible_channels:
-                                avalible_channels.append({'channel': task['channel']['name'], 'id': task['id']})
-                            break
+                                flag = True
+                                for i in avalible_channels:
+                                    if i['channel'] == task['channel']['name']:
+                                        flag = False
+                                        break
+                                if flag:
+                                    avalible_channels.append({
+                                        'channel': task['channel']['name'], 
+                                        'id': task['id'],
+                                        'group': group['id']
+                                    })
+                            
             if avalible_channels:  
                 await message.answer(
                     "Список доступных каналов:",
@@ -154,11 +175,17 @@ async def show_tasks(message: Message, bot: Bot):
 @router.callback_query(F.data.startswith("channel_"))
 async def complete_task(callback: CallbackQuery, state: FSMContext):
     task_id = int(callback.data.split("_")[1])
-    print(task_id)
-    await create_user_task(callback.from_user.id, task_id)
-    await callback.message.answer("Прикрепите скриншот подтверждения:")
+    group_id = int(callback.data.split("_")[2])
+    task_data = await get_tasks(callback.from_user.id)
+    task_name = None
+    for task in task_data['tasks']:
+        if task['id'] == task_id:
+            task_name = task['name']
+            break
+    await callback.message.answer(f"Задание '{task_name}' #{task_id}\n\nПрикрепите скриншот подтверждения:", reply_markup=cancel_keyboard())
     await state.set_state(TaskStates.SCREENSHOT)  # Устанавливаем состояние
     await state.update_data(task_id=task_id)
+    await state.update_data(group_id=group_id)
 
 
 
@@ -168,6 +195,7 @@ async def process_screenshot(message: Message, state: FSMContext, bot: Bot):
     # Получаем данные из состояния
     data = await state.get_data()
     task_id = data.get("task_id")
+    group_id = data.get("group_id")
 
     # Извлекаем file_id самого большого размера изображения
     photo = message.photo[-1]  # Берем последний элемент (самое большое изображение)
@@ -179,13 +207,15 @@ async def process_screenshot(message: Message, state: FSMContext, bot: Bot):
     image_url = f"https://api.telegram.org/file/bot{bot.token}/{file_path}"
     
     # Отправляем изображение в Django API
-    if await send_confirmation(image_url, message.from_user.id, task_id):
+    if await send_confirmation(image_url, message.from_user.id, task_id, group_id):
         await message.answer(
             'Отчет отправлен, ожидайте результата!',
+            reply_markup=main_menu_keyboard()
         )
     else:
         await message.answer(
-            'Что-то пошло не так, уже чиним('
+            'Что-то пошло не так, уже чиним(',
+            reply_markup=main_menu_keyboard()
         )
 
     # Очищаем состояние

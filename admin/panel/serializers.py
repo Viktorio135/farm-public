@@ -26,6 +26,7 @@ class TaskSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'id': {'required': False, 'allow_null': True},
+            'reward':{'required': False, 'allow_null': True},
             'end_time': {'required': False, 'allow_null': True},
             'reminder_start_time': {'required': False, 'allow_null': True},
             'reminder_end_time': {'required': False, 'allow_null': True}
@@ -39,6 +40,8 @@ class TaskSerializer(serializers.ModelSerializer):
             data['reminder_end_time'] = None
         if 'end_time' in data and data['end_time'] == '':
             data['end_time'] = None
+        if 'reward' in data and data['reward'] == '':
+            data['reward'] = None
         return super().to_internal_value(data)
     
     def validate_id(self, value):
@@ -56,6 +59,9 @@ class TaskSerializer(serializers.ModelSerializer):
 
     def validate_reward(self, value):
         """Проверка, что вознаграждение больше 0."""
-        if value <= 0:
-            raise serializers.ValidationError("Вознаграждение должно быть больше 0.")
+        if value is not None:
+            if value <= 0:
+                raise serializers.ValidationError("Вознаграждение должно быть больше 0.")
         return value
+    
+

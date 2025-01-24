@@ -153,6 +153,30 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
                 {'errors': e.detail, 'groups': gr, 'channels': ch}
             )
 
+        # Проверяем, что выбранные группы не используются в других активных задачах
+        group_ids = data['groups']
+        active_tasks = await sync_to_async(list)(
+            Task.objects.filter(
+                groups__id__in=group_ids,  # Группы пересекаются
+                status='1'  # Задача активна
+            ).distinct()
+        )
+
+        if active_tasks:
+            # Если есть активные задачи с этими группами, возвращаем ошибку
+            groups = await sync_to_async(list)(Groups.objects.all())
+            channels = await sync_to_async(list)(Channels.objects.all())
+            return await sync_to_async(render)(
+                request,
+                'admin_panel/create_task.html',
+                {
+                    'errors': {'groups': 'Одна или несколько выбранных групп уже используются в других активных задачах.'},
+                    'groups': groups,
+                    'channels': channels,
+                }
+            )
+
+
         # Создаем задание асинхронно
         task_data = serializer.validated_data
 
@@ -164,6 +188,9 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
 
         if 'reminder_end_time' not in task_data or task_data['reminder_end_time'] is None:
             task_data['reminder_end_time'] = timezone.now() + timedelta(days=14)
+        
+        if 'reward' not in task_data or task_data['reward'] is None:
+            task_data['reward'] = 30
 
         task = await sync_to_async(Task.objects.create)(
             id=task_data.get('id'),  # Используем указанный ID или None (автогенерация)
@@ -249,6 +276,7 @@ class TaskDetailView(AsyncLoginRequiredMixin, View):
         pending_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='pending'))
         rejected_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='rejected'))
         missed_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='missed', task__status='0'))
+        all_groups = await sync_to_async(list)(Groups.objects.all())
 
         context = {
             'task': task,
@@ -256,6 +284,7 @@ class TaskDetailView(AsyncLoginRequiredMixin, View):
             'pending_tasks': pending_tasks,
             'rejected_tasks': rejected_tasks,
             'missed_tasks': missed_tasks,
+            'all_groups': all_groups,
         }
 
         return await sync_to_async(render)(request, 'admin_panel/task_detail.html', context)
@@ -263,9 +292,10 @@ class TaskDetailView(AsyncLoginRequiredMixin, View):
 
 class EditTaskView(AsyncLoginRequiredMixin, View):
     async def post(self, request, task_id):
+        # Получаем задачу
         task = await sync_to_async(get_object_or_404)(Task, id=task_id)
 
-        # Обновляем данные задания
+        # Обновляем основные данные задания
         task.name = request.POST.get('name')
         task.link = request.POST.get('link')
         task.required_subscriptions = int(request.POST.get('required_subscriptions'))
@@ -274,7 +304,14 @@ class EditTaskView(AsyncLoginRequiredMixin, View):
         task.reminder_start_time = request.POST.get('reminder_start_time')
         task.reminder_end_time = request.POST.get('reminder_end_time')
 
+        # Сохраняем изменения в задаче
         await sync_to_async(task.save)()
+
+        # Обновляем список групп
+        group_ids = request.POST.getlist('groups')  # Получаем список ID выбранных групп
+        groups = await sync_to_async(list)(Groups.objects.filter(id__in=group_ids))  # Получаем объекты групп
+        await sync_to_async(task.groups.set)(groups)  # Обновляем связи ManyToMany
+
         return redirect('panel:task_detail', task_id=task.id)
     
 
@@ -307,11 +344,12 @@ class CheckTaskView(AsyncLoginRequiredMixin, View):
         user_tasks = await sync_to_async(UserTask.objects.select_related('user', 'task').filter)(status='pending')
 
         # Получаем все группы
-        groups = await sync_to_async(list)(Groups.objects.all())
+        channels = await sync_to_async(list)(Channels.objects.all())
 
         # Добавляем данные в контекст
         context['user_tasks'] = user_tasks
-        context['groups'] = groups
+        context['channels'] = channels
+
 
         # Рендерим шаблон асинхронно
         return await sync_to_async(render)(request, 'admin_panel/check_tasks.html', context=context)
@@ -351,15 +389,14 @@ class CheckTaskDetailView(AsyncLoginRequiredMixin, View):
 
             # Отправляем уведомление через WebSocket
             message_text = (
-                f"Ваше задание '{task_obj.id}' было проверено.\n"
+                f"Ваше задание '{task_obj.name}' #{task_obj.id} было проверено.\n"
                 f"Статус: Одобрено ✅\n"
                 f"Вознаграждение: {reward} руб.\n"
             )
         elif status == 'rejected':
             message_text = (
-                f"Ваше задание '{task_obj.id}' было проверено.\n"
+                f"Ваше задание '{task_obj.name}' #{task_obj.id} было проверено.\n"
                 f"Статус: Отклонено ❌\n"
-                f"Обратная связь: {feedback}" if feedback != "None" else ""
             )
         if feedback != "None":
             message_text += f"Обратная связь: {feedback}"
@@ -534,7 +571,7 @@ class ApproveTaskView(AsyncLoginRequiredMixin, View):
 
         # Отправляем уведомление пользователю
         message_text = (
-            f"Ваше задание '{task.id}' было засчитано.\n"
+            f"Ваше задание '{task.name}' #{task.id} было засчитано.\n"
             f"Статус: Одобрено ✅\n"
             f"Вознаграждение: {task.reward} руб.\n"
         )
@@ -580,8 +617,12 @@ class ChannelDetailView(AsyncLoginRequiredMixin, View):
 class DeleteChannelView(AsyncLoginRequiredMixin, View):
     async def post(self, request, channel_id):
         channel = await sync_to_async(get_object_or_404)(Channels, id=channel_id)
-        await sync_to_async(channel.delete)()
-        return redirect('panel:channel_list')
+        tasks = await sync_to_async(UserTask.objects.filter(status='pending', task__channel=channel).count)()
+        if tasks == 0:
+            await sync_to_async(channel.delete)()
+            return redirect('panel:channel_list')
+        else:
+            return redirect('panel:channel_detail', channel_id=channel_id)
 
 
 
@@ -633,60 +674,84 @@ class DeleteGroupView(AsyncLoginRequiredMixin, View):
 
 
 class UserGroupStatisticsView(AsyncLoginRequiredMixin, View):
-    async def get(self, request):
-        # Получаем список всех каналов
+    async def get(self, request, *args, **kwargs):
+        # Получаем список всех групп
         groups = await sync_to_async(list)(Groups.objects.all())
 
-        # Получаем данные о всех пользователях и их статистике
-        users = await sync_to_async(list)(
-            User.objects.annotate(
-                total_missed=Count('usertask', filter=Q(usertask__status='missed', usertask__task__status='0')),
-                total_tasks=Count('usertask'),
-                completion_rate=ExpressionWrapper(
-                    Coalesce(100 * Count('usertask', filter=Q(usertask__status='approved')) / Count('usertask'), 0.0),
-                    output_field=FloatField()
-                )
-            )
-        )
+        # Получаем выбранную группу из параметра запроса
+        selected_group_id = request.GET.get('group_id')
+        selected_group = None
+        if selected_group_id:
+            selected_group = await sync_to_async(Groups.objects.get)(id=selected_group_id)
 
-        # Для каждого пользователя рассчитываем количество реклам, пропущенных подряд
+        # Получаем список всех пользователей
+        users = await sync_to_async(list)(User.objects.all())
+
+        # Собираем статистику для каждого пользователя
+        user_stats = []
         for user in users:
-            # Получаем все задачи пользователя, отсортированные по времени окончания (от новых к старым)
-            user_tasks = await sync_to_async(list)(
-                UserTask.objects.filter(user=user).select_related('task__groups').order_by('-task__end_time')
-            )
+            # Фильтруем задачи пользователя по выбранной группе (если группа выбрана)
+            if selected_group:
+                user_tasks = await sync_to_async(list)(
+                    UserTask.objects.filter(user=user, group=selected_group)
+                )
+            else:
+                user_tasks = await sync_to_async(list)(
+                    UserTask.objects.filter(user=user)
+                )
 
-            # Счетчик для количества пропущенных подряд
-            last_missed_sequence = 0
+            # Считаем общее количество задач
+            total_tasks = len(user_tasks)
 
-            # Проходим по всем задачам пользователя
-            for user_task in user_tasks:
-                # Если задача пропущена (missed), увеличиваем счетчик
-                if user_task.status == 'missed' and user_task.task.status == '0':
-                    last_missed_sequence += 1
-                # Если задача не пропущена (approved, pending и т.д.), останавливаем подсчет
+            # Считаем количество пропущенных задач
+            total_missed = await sync_to_async(
+                UserTask.objects.filter(user=user, status='missed').count
+            )()
+
+            # Считаем процент выполнения задач
+            if total_tasks > 0:
+                completion_percentage = (total_tasks - total_missed) / total_tasks * 100
+            else:
+                completion_percentage = 0
+
+            # Считаем количество пропущенных задач подряд
+            consecutive_missed = 0
+            max_consecutive_missed = 0
+            for task in user_tasks:
+                if task.status == 'missed':
+                    consecutive_missed += 1
+                    if consecutive_missed > max_consecutive_missed:
+                        max_consecutive_missed = consecutive_missed
                 else:
-                    break
+                    consecutive_missed = 0
 
-            # Сохраняем количество пропущенных подряд
-            user.last_missed_sequence = last_missed_sequence
+            # Добавляем статистику пользователя в список
+            user_stats.append({
+                'user_id': user.user_id,
+                'username': user.username,
+                'total_missed': total_missed,
+                'total_tasks': total_tasks,
+                'completion_percentage': completion_percentage,
+                'consecutive_missed': max_consecutive_missed,
+            })
 
-        # Получаем список user_id для каждого канала
-        channel_members = {}
-        for group in groups:
-            user_ids = await get_channel_members_count(group.chat_id)
-            user_ids = ast.literal_eval(user_ids)  # Преобразуем строку в список
-            channel_members[group.id] = [int(user_id) for user_id in user_ids]  # Преобразуем user_id в числа
+        # Сортируем пользователей по пропускам всего и пропускам подряд
+        sort_by = request.GET.get('sort_by', 'total_missed')
+        if sort_by == 'total_missed':
+            user_stats.sort(key=lambda x: x['total_missed'], reverse=True)
+        elif sort_by == 'consecutive_missed':
+            user_stats.sort(key=lambda x: x['consecutive_missed'], reverse=True)
 
-        # Подготовка данных для шаблона
+        # Передаем данные в шаблон
         context = {
             'groups': groups,
-            'users': users,
-            'channel_members': channel_members,
+            'users': user_stats,
+            'selected_group': selected_group,
         }
+        print(context)
 
         return await sync_to_async(render)(request, 'admin_panel/user_group_statistics.html', context)
-    
+
 
 
 class FolderListView(AsyncLoginRequiredMixin, View):
@@ -753,37 +818,38 @@ class FolderDeleteView(AsyncLoginRequiredMixin, View):
 
 class PayoutView(View):
     async def get(self, request):
-
+        # Получаем все транзакции
         transactions = await sync_to_async(list)(Transaction.objects.all())
 
-        groups = await sync_to_async(list)(Groups.objects.all())
+        # Получаем список всех каналов
+        channels = await sync_to_async(list)(Channels.objects.all())
 
         # Получаем список всех каналов с количеством заданий, которые еще не были выплачены
         channels_with_tasks = await sync_to_async(list)(
-            Groups.objects.annotate(
+            Channels.objects.annotate(
                 tasks_list=Count('task')  # Аннотируем количество заданий для каждого канала
             ).prefetch_related('task_set')  # Используем prefetch_related для оптимизации запросов
         )
 
+        # Создаем словарь для хранения задач по каналам
         channels_dict = {
-            groups.name: [task for task in groups.task_set.all()]
-            for groups in channels_with_tasks
+            channel.name: [task for task in channel.task_set.all()]
+            for channel in channels_with_tasks
         }
 
+        # Считаем количество принятых скринов для каждого канала
         channels_total = {}
-        for groups in channels_dict:
-            for task in channels_dict[Groups]:
+        for channel_name in channels_dict:
+            for task in channels_dict[channel_name]:
                 for transaction in transactions:
                     if (transaction.comment.endswith(f' {task.id}')) and (await sync_to_async(lambda: transaction.payout_id)() is None):
-                        if groups not in channels_total:
-                            channels_total[groups] = 1
+                        if channel_name not in channels_total:
+                            channels_total[channel_name] = 1
                         else:
-                            channels_total[groups] += 1
+                            channels_total[channel_name] += 1
 
-
-        # Сначала соберем всех пользователей и их заработки
+        # Получаем список всех рефералов
         all_ref = await sync_to_async(list)(Referral.objects.all())
-
 
         # Получаем список всех папок
         folders = await sync_to_async(list)(Folder.objects.all())
@@ -802,7 +868,9 @@ class PayoutView(View):
                         )
                     )
                 )
-            )       
+            )
+
+            # Добавляем реферальные бонусы к балансу пользователей
             for ref_user in all_ref:
                 referrer = await sync_to_async(lambda: ref_user.referrer)()
                 for f_user in folder_users:
@@ -813,29 +881,26 @@ class PayoutView(View):
                         f_user.total_balance += (referred_user.balance * 0.10)
                         f_user.balance += (referred_user.balance * 0.10)
 
-
             # Считаем общую сумму выплаты для папки
             total_payout = sum(user.total_balance or 0 for user in folder_users)
-
-            
 
             folder_data.append({
                 'folder': folder,
                 'users': folder_users,
                 'total_payout': round(total_payout, 2),  # Добавляем общую сумму выплаты
             })
-        
 
         # Контекст для шаблона
         context = {
-            'groups': groups,
-            'channels_total': channels_total,
-            'folders': folders,
-            'folder_data': folder_data,
+            'channels': channels,  # Передаем каналы вместо групп
+            'channels_total': channels_total,  # Статистика по каналам
+            'folders': folders,  # Папки остаются без изменений
+            'folder_data': folder_data,  # Данные по папкам
         }
 
         return await sync_to_async(render)(request, 'admin_panel/payouts.html', context)
     
+
 
 class ResetBalancesView(View):
     async def post(self, request):

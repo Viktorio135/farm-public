@@ -16,7 +16,6 @@ class User(models.Model):
     username = models.CharField(max_length=255, null=True, blank=True)
     avatar = models.BooleanField(default=False)
     balance = models.FloatField(default=0.0)
-    last_activity = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.username
@@ -78,6 +77,7 @@ class UserTask(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOISE, default='pending')
     screenshot = models.ImageField(upload_to=confirmation_upload_path, null=True, blank=True)
     feedback = models.CharField(max_length=255, null=True, blank=True)
+    group = models.ForeignKey(Groups, on_delete=models.CASCADE, blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.task.name}"

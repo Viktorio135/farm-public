@@ -89,20 +89,20 @@
 </head>
 <body>
     {% include 'admin_panel/navbar.html' %}
-    <h1>Статистика по группаам</h1>
+    <h1>Статистика по каналам</h1>
     <div class="payout-list">
         <table id='channelsTable'>
             <thead>
                 <tr>
-                    <th>Название группаа</th>
+                    <th>Название канала</th>
                     <th>Принятых скринов</th>
                 </tr>
             </thead>
             <tbody>
-                {% for Groups in groups %}
-                    <tr data-href="{% url 'panel:channel_detail' Groups.id %}">
-                        <td>{{ Groups.name }}</td>
-                        <td>{{ channels_total|get_item:Groups.name }}</td>
+                {% for channel in channels %}
+                    <tr data-href="{% url "panel:channel_detail" channel.id %}">
+                        <td>{{ channel.name }}</td>
+                        <td>{{ channels_total|get_item:channel.name|default:"0"}}</td>
                     </tr>
                 {% endfor %}
             </tbody>

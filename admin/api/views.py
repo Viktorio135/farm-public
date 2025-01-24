@@ -79,8 +79,9 @@ class SendConfirmationView(APIView):
         file = request.FILES.get('file')
         task_id = request.POST.get('task_id')
         user_id = request.POST.get('user_id')
+        group_id = request.POST.get('group_id')
 
-        if file and task_id and user_id:
+        if file and task_id and user_id and group_id:
             # Сохраняем файл
             dir_path = f'media/screenshots/{str(user_id)}'
             if not os.path.exists(dir_path):
@@ -93,11 +94,14 @@ class SendConfirmationView(APIView):
                 user=user,
                 task=task,
                 status='missed').first)()
+            
+            group = await sync_to_async(Groups.objects.get)(id=group_id)
 
             if usertask:
                 # Обновляем существующий UserTask
                 usertask.status = 'pending'
                 usertask.screenshot = file_name
+                usertask.group = group
                 await sync_to_async(usertask.save)()
             else:
                 # Создаем новый UserTask
@@ -105,7 +109,8 @@ class SendConfirmationView(APIView):
                     user=user,
                     task=task,
                     status='pending',
-                    screenshot=file_name
+                    screenshot=file_name,
+                    group=group,
                 )
             return Response(status=status.HTTP_201_CREATED)
         else:

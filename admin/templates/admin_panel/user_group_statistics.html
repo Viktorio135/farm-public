@@ -73,10 +73,12 @@
     <h1>Статистика пользователей по каналам</h1>
 
     <div class="Groups-selector">
-        <select id="channelSelect">
-            <option value="">Выберите группа</option>
-            {% for Groups in groups %}
-                <option value="{{ Groups.id }}">{{ Groups.name }}</option>
+        <select id="channelSelect" onchange="updateGroup()">
+            <option value="">Все группы</option>
+            {% for group in groups %}
+                <option value="{{ group.id }}" {% if selected_group and selected_group.id == group.id %}selected{% endif %}>
+                    {{ group.name }}
+                </option>
             {% endfor %}
         </select>
     </div>
@@ -99,84 +101,46 @@
         </thead>
         <tbody>
             {% for user in users %}
-                <tr data-user-id="{{ user.user_id }}" class="hidden" data-href="{% url 'panel:user_detail' user.user_id %}">
+                <tr data-user-id="{{ user.user_id }}" class="" data-href="{% url 'panel:user_detail' user.user_id %}">
                     <td>{{ user.username }}</td>
                     <td>{{ user.user_id }}</td>
                     <td>{{ user.total_missed }}</td>
                     <td>{{ user.total_tasks }}</td>
-                    <td>{{ user.completion_rate|floatformat:2 }}%</td>
-                    <td>{{ user.last_missed_sequence }}</td>
+                    <td>{{ user.completion_percentage|floatformat:2 }}%</td>
+                    <td>{{ user.consecutive_missed }}</td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
 
     <script>
-        // Данные о пользователях и каналах
-        const channelMembers = {{ channel_members|safe }};
-        const userStatsTable = document.getElementById('userStatsTable');
-        const channelSelect = document.getElementById('channelSelect');
-        const sortByTotalMissedButton = document.getElementById('sortByTotalMissed');
-        const sortByConsecutiveMissedButton = document.getElementById('sortByConsecutiveMissed');
-
-        // Функция для фильтрации пользователей по выбранному каналу
-        function filterUsersByChannel(channelId) {
-            const rows = userStatsTable.getElementsByTagName('tbody')[0].rows;
-
-            for (let row of rows) {
-                const userId = Number(row.getAttribute('data-user-id'));  // Преобразуем в число
-                const isMember = channelId ? channelMembers[channelId].includes(userId) : false;
-
-                if (channelId && isMember) {
-                    row.classList.remove('hidden');
-                } else if (!channelId) {
-                    row.classList.remove('hidden');
-                } else {
-                    row.classList.add('hidden');
-                }
+        // Функция для обновления группы
+        function updateGroup() {
+            const groupId = document.getElementById("channelSelect").value;
+            const url = new URL(window.location.href);
+            if (groupId) {
+                url.searchParams.set('group_id', groupId);
+            } else {
+                url.searchParams.delete('group_id');
             }
+            window.location.href = url.toString();
         }
-
-        // Функция для сортировки таблицы
-        function sortTable(columnIndex, ascending = true) {
-            const rows = Array.from(userStatsTable.getElementsByTagName('tbody')[0].rows);
-
-            rows.sort((a, b) => {
-                const aValue = parseFloat(a.cells[columnIndex].textContent);
-                const bValue = parseFloat(b.cells[columnIndex].textContent);
-
-                if (ascending) {
-                    return aValue - bValue;
-                } else {
-                    return bValue - aValue;
-                }
-            });
-
-            // Очищаем таблицу и добавляем отсортированные строки
-            const tbody = userStatsTable.getElementsByTagName('tbody')[0];
-            tbody.innerHTML = '';
-            rows.forEach(row => tbody.appendChild(row));
-        }
-
-        // Обработчик изменения выбора канала
-        channelSelect.addEventListener('change', function () {
-            const selectedChannelId = this.value;
-            filterUsersByChannel(selectedChannelId);
-        });
 
         // Обработчик сортировки по "пропущено всего"
-        sortByTotalMissedButton.addEventListener('click', function () {
-            sortTable(2, false);  // Сортировка по третьему столбцу (пропущено всего) в порядке убывания
+        document.getElementById("sortByTotalMissed").addEventListener("click", function() {
+            const url = new URL(window.location.href);
+            url.searchParams.set('sort_by', 'total_missed');
+            window.location.href = url.toString();
         });
 
         // Обработчик сортировки по "пропущено подряд"
-        sortByConsecutiveMissedButton.addEventListener('click', function () {
-            sortTable(5, false);  // Сортировка по шестому столбцу (пропущено подряд) в порядке убывания
+        document.getElementById("sortByConsecutiveMissed").addEventListener("click", function() {
+            const url = new URL(window.location.href);
+            url.searchParams.set('sort_by', 'consecutive_missed');
+            window.location.href = url.toString();
         });
 
-        // Инициализация: скрываем всех пользователей, пока группа не выбран
-        filterUsersByChannel('');
-
+        // Обработчик клика по строке таблицы
         document.addEventListener("DOMContentLoaded", function() {
             const rows = document.querySelectorAll("#userStatsTable tbody tr");
             rows.forEach(row => {

@@ -16,7 +16,7 @@ async def get_channels():
             return []
 
 
-async def send_confirmation(image_url, user_id, task_id):
+async def send_confirmation(image_url, user_id, task_id, group_id):
     async with aiohttp.ClientSession() as session:
         # Скачиваем изображение
         async with session.get(image_url) as response:
@@ -27,6 +27,7 @@ async def send_confirmation(image_url, user_id, task_id):
                 form_data.add_field('file', image_data, filename='screenshot.png', content_type='image/png')
                 form_data.add_field('task_id', str(task_id))
                 form_data.add_field('user_id', str(user_id))
+                form_data.add_field('group_id', str(group_id))
 
                 async with session.post(f'{API_URL}usertasks/send_confirmation/', data=form_data) as response:
                     if response.status == 201:

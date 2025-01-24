@@ -50,8 +50,8 @@ def send_unsubscribe_reminder(user_task_id):
 
     # Формируем сообщение
     message = (
-        f"Напоминание: отпишитесь от канала {task.link}.\n"
-        f"Задание: {task.name}\n"
+        f"Напоминание: отпишитесь от канала {task.link}.\n\n"
+        f"Задание: '{task.name}' #{task.id}\n"
     )
 
     # Отправляем уведомление через WebSocket

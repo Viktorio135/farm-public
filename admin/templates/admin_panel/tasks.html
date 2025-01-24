@@ -109,7 +109,7 @@
 <body>
     {% include 'admin_panel/navbar.html' %}
     <h1>Задания</h1>
-    <input type="text" id="search" onkeyup="searchTasks()" placeholder="Поиск по названию канала...">
+    <input type="text" id="search" onkeyup="searchTasks()" placeholder="Поиск по названию канала, по Id или по названию задания...">
     
     <div class="summary">
         <div>
@@ -132,7 +132,8 @@
         <thead>
             <tr>
                 <th>Id</th>
-                <th>Название канала</th>
+                <th>Название</th>
+                <th>Основной канал</th>
                 <th>Ссылка</th>
                 <th>Время добавления</th>
                 <th>Время окончания</th>
@@ -147,6 +148,7 @@
                 <tr data-href="{% url "panel:task_detail" task.id %}">
                     <td>{{ task.id }}</td>
                     <td>{{ task.name }}</td>
+                    <td>{{ task.channel.name }}</td>
                     <td><a href="{{ task.link }}" target="_blank">{{ task.link }}</a></td>
                     <td>{{ task.start_time }}</td>
                     <td>{{ task.end_time }}</td>
@@ -166,20 +168,28 @@
             const filter = input.value.toUpperCase();
             const table = document.getElementById("tasksTable");
             const tr = table.getElementsByTagName("tr");
-
+        
             for (let i = 1; i < tr.length; i++) { // Начинаем с 1, чтобы пропустить заголовок
-                const tdChannelName = tr[i].getElementsByTagName("td")[0]; // Колонка названия канала
+                const tdId = tr[i].getElementsByTagName("td")[0]; // Колонка Id
+                const tdTaskName = tr[i].getElementsByTagName("td")[1]; // Колонка названия задания
+                const tdChannelName = tr[i].getElementsByTagName("td")[2]; // Колонка основного канала
                 let match = false;
-
-                if (tdChannelName) {
+        
+                if (tdId && tdTaskName && tdChannelName) {
+                    const idText = tdId.textContent || tdId.innerText;
+                    const taskNameText = tdTaskName.textContent || tdTaskName.innerText;
                     const channelNameText = tdChannelName.textContent || tdChannelName.innerText;
-
-                    // Поиск по названию канала
-                    if (channelNameText.toUpperCase().indexOf(filter) > -1) {
+        
+                    // Поиск по Id, названию задания и основному каналу
+                    if (
+                        idText.toUpperCase().indexOf(filter) > -1 ||
+                        taskNameText.toUpperCase().indexOf(filter) > -1 ||
+                        channelNameText.toUpperCase().indexOf(filter) > -1
+                    ) {
                         match = true;
                     }
                 }
-
+        
                 // Показываем или скрываем строку
                 if (match) {
                     tr[i].style.display = "";

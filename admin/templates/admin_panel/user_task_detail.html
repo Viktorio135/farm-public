@@ -62,7 +62,13 @@
     <div class="task-details">
         <p><strong>Id:</strong> {{ task_data.task.id }}</p>
         <p><strong>Название задания:</strong> {{ task_data.task.name }}</p>
-        <p><strong>группа:</strong> {{ task_data.task.groups.name }}</p>
+        <p><strong>Канал:</strong> {{ task_data.task.channel.name }}</p>
+        <p><strong>Группы:</strong> 
+        {% for group in task_data.task.groups.all %}
+            {{ group.name }}{% if not forloop.last %}, {% endif %}
+        {% empty %}
+            Нет групп
+        {% endfor %}</p>
         <p><strong>Ссылка на группа:</strong> <a href="{{ task_data.task.link }}" target="_blank">{{ task_data.task.link }}</a></p>
         <p><strong>Пример скриншота:</strong></p>
         <img src="{{ task_data.task.example.url }}" alt="Пример скриншота задания">
