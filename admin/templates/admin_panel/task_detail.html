@@ -187,7 +187,7 @@
     <div class="task-info">
         <p><strong>Id:</strong> {{ task.id }}</p>
         <p><strong>Название:</strong> {{ task.name }}</p>
-        <p><strong>Ссылка:</strong> <a href="{{ task.link }}" target="_blank">{{ task.link }}</a></p>
+        <p><strong>Ссылка:</strong> {% if task.link %}<a href="{{ task.link }}" target="_blank">{{ task.link }}</a></p>{% endif %}
         <p><strong>Канал:</strong> {{ task.channel.name }}</p>
         <p><strong>Группы:</strong>
             {% for group in task.groups.all %}

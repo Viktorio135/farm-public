@@ -26,6 +26,7 @@ class TaskSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'id': {'required': False, 'allow_null': True},
+            'link': {'required': False, 'allow_null': True},
             'reward':{'required': False, 'allow_null': True},
             'end_time': {'required': False, 'allow_null': True},
             'reminder_start_time': {'required': False, 'allow_null': True},
@@ -42,6 +43,8 @@ class TaskSerializer(serializers.ModelSerializer):
             data['end_time'] = None
         if 'reward' in data and data['reward'] == '':
             data['reward'] = None
+        if 'link' in data and data['link'] == '':
+            data['link'] = None
         return super().to_internal_value(data)
     
     def validate_id(self, value):

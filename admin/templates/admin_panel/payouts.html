@@ -85,6 +85,22 @@
         .back-link:hover {
             color: #0056b3;
         }
+
+        .payout-actions a.export-btn {
+            background-color: #17a2b8;
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+        }
+        
+        .payout-actions a.export-btn:hover {
+            background-color: #138496;
+        }
     </style>
 </head>
 <body>
@@ -141,6 +157,9 @@
             {% csrf_token %}
             <button type="submit">Отправить информацию о доходах</button>
         </form>
+
+        <a href="{% url 'panel:export_payouts_to_excel' %}" class="export-btn">Экспорт в Excel</a>
+
     </div>
 
     <script>

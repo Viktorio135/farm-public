@@ -42,7 +42,7 @@ class Task(models.Model):
 
     id = models.AutoField(primary_key=True, editable=True)
     name = models.CharField(max_length=255)
-    link = models.CharField(max_length=255)
+    link = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(
         max_length=1,
         choices=STATUS_CHOISE,

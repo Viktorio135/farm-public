@@ -31,6 +31,7 @@ urlpatterns = [
     path('users/statistics/', UserGroupStatisticsView.as_view(), name='users_statistics'),
     path('user/<int:user_id>/add_funds/', AddFundsView.as_view(), name='add_funds'),
     path('users/', UserListView.as_view(), name='user_list'),
+    path('users/delete-user/', DeleteUserView.as_view(), name='delete_user'),
     path('users/add/', AddUserView.as_view(), name='add_user'),
     path('usertask/<int:user_task_id>', UserTaskDetailView.as_view(), name='user_task_detail'),   
 
@@ -68,6 +69,7 @@ urlpatterns = [
     path('payout/', PayoutView.as_view(), name='payout_list'),
     path('payout/reset/', ResetBalancesView.as_view(), name='payout_reset'),
     path('payout/send_information/', SendPayoutInformation.as_view(), name='send_information'),
+    path('payout/export-payouts-to-excel/', ExportPayoutsToExcelView.as_view(), name='export_payouts_to_excel'),
 
 
     #referals

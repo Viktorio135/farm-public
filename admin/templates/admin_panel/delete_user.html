@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Управление пользователями</title>
+    <title>Удаление пользователя</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,10 +27,6 @@
         #search:focus {
             border-color: #007bff;
         }
-        #totalUsers {
-            font-weight: bold;
-            color: #007bff;
-        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -53,55 +49,59 @@
         }
         tr:hover {
             background-color: #f1f1f1;
-            cursor: pointer; /* Изменение курсора при наведении */
         }
-        a {
-            color: #007bff;
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-        a:hover {
-            color: #0056b3;
-        }
-        .create-btn {
-            background-color: #28a745;
+        .delete-btn {
+            background-color: #dc3545;
             color: #fff;
             border: none;
             padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s ease;
-            margin-right: 10px;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+        .error {
+            color: #dc3545;
+            text-align: center;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
     {% include 'admin_panel/navbar.html' %}
-    <h1>Пользователи</h1>
+    <h1>Удаление пользователя</h1>
+
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% endif %}
+
     <input type="text" id="search" onkeyup="searchUsers()" placeholder="Поиск по ID или имени пользователя...">
-    <button class="create-btn" onclick="window.location.href='{% url "panel:users_statistics" %}'">Статистика пропусков</button>
-    <button class="create-btn" onclick="window.location.href='{% url "panel:folder_list" %}'">Папки</button>
-    <button class="create-btn" onclick="window.location.href='{% url "panel:referral_list" %}'">Рефералы</button>
-    <button class="create-btn" onclick="window.location.href='{% url "panel:delete_user" %}'">Удалить пользователя</button>
-    <p>Общее количество пользователей: <span id="totalUsers">{{ users|length }}</span></p>
-    <table id="usersTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Баланс</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for user in users %}
-                <tr data-href="{% url 'panel:user_detail' user.user_id %}">
-                    <td>{{ user.user_id }}</td>
-                    <td>{{ user.username }}</td>
-                    <td>{{ user.balance }} руб.</td>
+
+    <form method="post">
+        {% csrf_token %}
+        <table id="usersTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Действие</th>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ user.user_id }}</td>
+                        <td>{{ user.username }}</td>
+                        <td>
+                            <button type="submit" name="user_id" value="{{ user.user_id }}" class="delete-btn">Удалить</button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </form>
 
     <script>
         // Поиск пользователей
@@ -134,19 +134,6 @@
                 }
             }
         }
-
-        // Переход на страницу пользователя при клике на строку
-        document.addEventListener("DOMContentLoaded", function() {
-            const rows = document.querySelectorAll("#usersTable tbody tr");
-            rows.forEach(row => {
-                row.addEventListener("click", function() {
-                    const url = row.getAttribute("data-href");
-                    if (url) {
-                        window.location.href = url;
-                    }
-                });
-            });
-        });
     </script>
 </body>
 </html>

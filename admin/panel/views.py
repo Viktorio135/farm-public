@@ -11,11 +11,13 @@ from channels.layers import get_channel_layer
 from django.db.models import Count, Q, Sum, ExpressionWrapper, FloatField
 from django.db.models.functions import Coalesce
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from datetime import timedelta
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 
 
@@ -153,28 +155,6 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
                 {'errors': e.detail, 'groups': gr, 'channels': ch}
             )
 
-        # Проверяем, что выбранные группы не используются в других активных задачах
-        group_ids = data['groups']
-        active_tasks = await sync_to_async(list)(
-            Task.objects.filter(
-                groups__id__in=group_ids,  # Группы пересекаются
-                status='1'  # Задача активна
-            ).distinct()
-        )
-
-        if active_tasks:
-            # Если есть активные задачи с этими группами, возвращаем ошибку
-            groups = await sync_to_async(list)(Groups.objects.all())
-            channels = await sync_to_async(list)(Channels.objects.all())
-            return await sync_to_async(render)(
-                request,
-                'admin_panel/create_task.html',
-                {
-                    'errors': {'groups': 'Одна или несколько выбранных групп уже используются в других активных задачах.'},
-                    'groups': groups,
-                    'channels': channels,
-                }
-            )
 
 
         # Создаем задание асинхронно
@@ -444,6 +424,42 @@ class UserListView(AsyncLoginRequiredMixin, View):
         users = await sync_to_async(list)(User.objects.all())
         return await sync_to_async(render)(request, 'admin_panel/users.html', {'users': users})
     
+class DeleteUserView(AsyncLoginRequiredMixin, View):
+    async def get(self, request):
+        # Получаем список всех пользователей
+        users = await sync_to_async(list)(User.objects.all())
+        return await sync_to_async(render)(request, 'admin_panel/delete_user.html', {'users': users})
+
+    async def post(self, request):
+        # Получаем ID пользователя из формы
+        user_id = request.POST.get('user_id')
+        
+        if user_id:
+            # Получаем пользователя по ID
+            user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
+            
+            # Удаляем все связанные данные пользователя
+            await sync_to_async(UserTask.objects.filter(user=user).delete)()
+            await sync_to_async(Transaction.objects.filter(user=user).delete)()
+            await sync_to_async(Referral.objects.filter(referrer=user).delete)()
+            await sync_to_async(Referral.objects.filter(referred=user).delete)()
+            await sync_to_async(FolderUser.objects.filter(user=user).delete)()
+            
+            # Удаляем самого пользователя
+            await sync_to_async(user.delete)()
+            
+            # Перенаправляем на страницу списка пользователей
+            return redirect('panel:user_list')
+        
+        # Если user_id не был передан, возвращаем ошибку
+        users = await sync_to_async(list)(User.objects.all())
+        return await sync_to_async(render)(request, 'admin_panel/delete_user.html', {
+            'users': users,
+            'error': 'Пользователь не выбран.'
+        })
+
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class AddTaskView(AsyncLoginRequiredMixin, View):
     async def get(self, request):
@@ -757,7 +773,19 @@ class UserGroupStatisticsView(AsyncLoginRequiredMixin, View):
 class FolderListView(AsyncLoginRequiredMixin, View):
     async def get(self, request):
         folders = await sync_to_async(list)(Folder.objects.all())
-        return await sync_to_async(render)(request, 'admin_panel/folders.html', {'folders': folders})
+        
+        # Получаем пользователей, которые не находятся ни в одной папке
+        users_not_in_any_folder = await sync_to_async(list)(
+            User.objects.filter(user_folders__isnull=True)
+        )
+        
+        context = {
+            'folders': folders,
+            'users_not_in_any_folder': users_not_in_any_folder,  # Передаем список пользователей
+        }
+        return await sync_to_async(render)(request, 'admin_panel/folders.html', context)
+    
+
 
 class FolderCreateView(AsyncLoginRequiredMixin, View):
     async def get(self, request):
@@ -775,23 +803,31 @@ class FolderDetailView(AsyncLoginRequiredMixin, View):
     async def get(self, request, folder_id):
         folder = await sync_to_async(get_object_or_404)(Folder, id=folder_id)
         users_in_folder = await sync_to_async(list)(folder.folder_users.all())
-        users_not_in_folder = await sync_to_async(list)(User.objects.exclude(user_folders__folder=folder))
+        
+        # Получаем пользователей, которые не находятся ни в одной папке
+        users_not_in_any_folder = await sync_to_async(list)(
+            User.objects.filter(user_folders__isnull=True)
+        )
+        
         context = {
             'folder': folder,
             'users_in_folder': users_in_folder,
-            'users_not_in_folder': users_not_in_folder,
+            'users_not_in_folder': users_not_in_any_folder,  # Только пользователи, не находящиеся ни в одной папке
         }
         return await sync_to_async(render)(request, 'admin_panel/folder_detail.html', context)
 
     async def post(self, request, folder_id):
         folder = await sync_to_async(get_object_or_404)(Folder, id=folder_id)
         user_ids = request.POST.getlist('users')  # Получаем список выбранных пользователей
+        
         for user_id in user_ids:
             user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
-            if not await sync_to_async(FolderUser.objects.filter(folder=folder, user=user).exists)():
+            
+            # Проверяем, что пользователь не находится ни в одной папке
+            if not await sync_to_async(FolderUser.objects.filter(user=user).exists)():
                 await sync_to_async(FolderUser.objects.create)(folder=folder, user=user)
+        
         return redirect('panel:folder_detail', folder_id=folder.id)
-
 
 
 class FolderRemoveUsersView(AsyncLoginRequiredMixin, View):
@@ -816,7 +852,7 @@ class FolderDeleteView(AsyncLoginRequiredMixin, View):
         return redirect('panel:folder_list')
     
 
-class PayoutView(View):
+class PayoutView(AsyncLoginRequiredMixin, View):
     async def get(self, request):
         # Получаем все транзакции
         transactions = await sync_to_async(list)(Transaction.objects.all())
@@ -900,9 +936,115 @@ class PayoutView(View):
 
         return await sync_to_async(render)(request, 'admin_panel/payouts.html', context)
     
+class ExportPayoutsToExcelView(AsyncLoginRequiredMixin, View):
+    async def get(self, request):
+        # Создаем новый Excel-файл
+        wb = Workbook()
+        
+        # Лист для статистики по каналам
+        ws_channels = wb.active
+        ws_channels.title = "Статистика по каналам"
+        
+        # Заголовки для таблицы по каналам
+        ws_channels.append(["Название канала", "Принятых скринов"])
+        
+        # Получаем данные для статистики по каналам
+        transactions = await sync_to_async(list)(Transaction.objects.all())
+        channels = await sync_to_async(list)(Channels.objects.all())
+        channels_with_tasks = await sync_to_async(list)(
+            Channels.objects.annotate(
+                tasks_list=Count('task')
+            ).prefetch_related('task_set')
+        )
+
+        channels_dict = {
+            channel.name: [task for task in channel.task_set.all()]
+            for channel in channels_with_tasks
+        }
+
+        channels_total = {}
+        for channel_name in channels_dict:
+            for task in channels_dict[channel_name]:
+                for transaction in transactions:
+                    if (transaction.comment.endswith(f' {task.id}')) and (await sync_to_async(lambda: transaction.payout_id)() is None):
+                        if channel_name not in channels_total:
+                            channels_total[channel_name] = 1
+                        else:
+                            channels_total[channel_name] += 1
+
+        # Заполняем данные по каналам
+        for channel in channels:
+            ws_channels.append([channel.name, channels_total.get(channel.name, 0)])
+
+        # Получаем данные для статистики по папкам
+        all_ref = await sync_to_async(list)(Referral.objects.all())
+        folders = await sync_to_async(list)(Folder.objects.all())
+
+        folder_data = []
+        for folder in folders:
+            folder_users = await sync_to_async(list)(
+                User.objects.filter(user_folders__folder=folder).annotate(
+                    total_balance=Sum(
+                        'users__amount',
+                        filter=Q(
+                            Q(users__type='completed_task', users__payout_id__isnull=True) |
+                            Q(users__type='manual_crediting')
+                        )
+                    )
+                )
+            )
+
+            for ref_user in all_ref:
+                referrer = await sync_to_async(lambda: ref_user.referrer)()
+                for f_user in folder_users:
+                    if f_user.total_balance is None:
+                        f_user.total_balance = 0.0
+                    if referrer == f_user:
+                        referred_user = await sync_to_async(lambda: ref_user.referred)()
+                        f_user.total_balance += (referred_user.balance * 0.10)
+                        f_user.balance += (referred_user.balance * 0.10)
+
+            total_payout = sum(user.total_balance or 0 for user in folder_users)
+
+            folder_data.append({
+                'folder': folder,
+                'users': folder_users,
+                'total_payout': round(total_payout, 2),
+            })
+
+        # Создаем отдельный лист для каждой папки
+        for folder in folder_data:
+            ws_folder = wb.create_sheet(title=folder['folder'].name)  # Название листа = название папки
+            
+            # Заголовки для таблицы по папке
+            ws_folder.append(["Пользователь", "Сумма"])
+            
+            # Заполняем данные по пользователям
+            for user in folder['users']:
+                ws_folder.append([f"{user.username} (ID: {user.user_id})", user.total_balance or 0])
+            
+            # Добавляем общую сумму выплат для папки
+            ws_folder.append(["Общая сумма выплат", folder['total_payout']])
+
+        # Настройка стилей для заголовков
+        for sheet in wb:
+            for col in sheet.columns:
+                col[0].font = Font(bold=True)
+
+        # Удаляем пустой лист, созданный по умолчанию
+        if "Sheet" in wb.sheetnames:
+            wb.remove(wb["Sheet"])
+
+        # Сохраняем файл в HttpResponse
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename=payouts_statistics.xlsx'
+        wb.save(response)
+
+        return response
+    
 
 
-class ResetBalancesView(View):
+class ResetBalancesView(AsyncLoginRequiredMixin, View):
     async def post(self, request):
         # Получаем дату последней выплаты
         last_payout = await sync_to_async(Payout.objects.order_by('-date').first)()
@@ -1073,7 +1215,7 @@ class SendPayoutInformation(AsyncLoginRequiredMixin, View):
     
 
 
-class CreateReferralView(View):
+class CreateReferralView(AsyncLoginRequiredMixin, View):
     async def get(self, request):
         # Получаем список всех пользователей для выбора
         users = await sync_to_async(list)(User.objects.all())
@@ -1117,7 +1259,7 @@ class CreateReferralView(View):
             return await sync_to_async(render)(request, 'admin_panel/create_referral.html', context)
         
 
-class ReferralListView(View):
+class ReferralListView(AsyncLoginRequiredMixin, View):
     async def get(self, request):
         referrals = await sync_to_async(list)(Referral.objects.select_related('referrer', 'referred').all())
         context = {
@@ -1126,7 +1268,7 @@ class ReferralListView(View):
         return await sync_to_async(render)(request, 'admin_panel/referral_list.html', context)
     
 
-class DeleteReferralView(View):
+class DeleteReferralView(AsyncLoginRequiredMixin, View):
     async def post(self, request, referral_id):
         # Получаем реферальную связь по ID
         referral = await sync_to_async(Referral.objects.get)(id=referral_id)

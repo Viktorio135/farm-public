@@ -33,6 +33,7 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             border-radius: 8px;
             overflow: hidden;
+            margin-bottom: 20px;
         }
         th, td {
             padding: 12px 15px;
@@ -58,6 +59,28 @@
         a:hover {
             color: #0056b3;
         }
+        .user-list {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .user-list h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .user-list ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .user-list ul li {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
@@ -66,6 +89,7 @@
 
     <button class="create-btn" onclick="window.location.href='{% url 'panel:folder_create' %}'">Создать папку</button>
 
+    <!-- Таблица с папками -->
     <table id='foldersTable'>
         <thead>
             <tr>
@@ -80,6 +104,22 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <!-- Список пользователей, не находящихся ни в одной папке -->
+    <div class="user-list">
+        <h2>Пользователи, не находящиеся ни в одной папке</h2>
+        <ul>
+            {% for user in users_not_in_any_folder %}
+                <li>
+                    <a href="{% url 'panel:user_detail' user.user_id %}">
+                        {{ user.username }} (ID: {{ user.user_id }})
+                    </a>
+                </li>
+            {% empty %}
+                <li>Нет пользователей, не находящихся в папках.</li>
+            {% endfor %}
+        </ul>
+    </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
