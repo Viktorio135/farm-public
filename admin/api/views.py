@@ -1,4 +1,7 @@
 import os
+import aiofiles
+import aiofiles.os
+
 
 from adrf.views import APIView
 from rest_framework.response import Response
@@ -8,7 +11,7 @@ from django.core.files.storage import default_storage
 
 
 
-from panel.models import Task, User, Transaction, UserTask, Groups, Channels
+from panel.models import Task, User, UserTask, Groups
 from .serializers import UserSerializer, TaskSerializer, UserTaskSerializer, GroupsSerializer
 
 
@@ -39,7 +42,7 @@ class UserAddView(APIView):
 class UserDetailView(APIView):
     async def get(self, request, user_id):
         try:
-            user = await sync_to_async(User.objects.get)(user_id=user_id)
+            user = await User.objects.aget(user_id=user_id)
             serializer = UserSerializer(user)
             return Response(serializer.data)
         except User.DoesNotExist:
@@ -84,28 +87,32 @@ class SendConfirmationView(APIView):
         if file and task_id and user_id and group_id:
             # Сохраняем файл
             dir_path = f'media/screenshots/{str(user_id)}'
-            if not os.path.exists(dir_path):
-                os.mkdir(dir_path)
-            file_name = default_storage.save(f"{dir_path}/{file.name}", file)
-            user = await sync_to_async(User.objects.get)(user_id=user_id)
-            task = await sync_to_async(Task.objects.get)(id=task_id, status='1')
+            if not await aiofiles.os.path.exists(dir_path):
+                await aiofiles.os.makedirs(dir_path, exist_ok=True)
+            
+            # Асинхронно сохраняем файл
+            file_name = f"{dir_path}/{file.name}"
+            async with aiofiles.open(file_name, 'wb') as f:
+                await f.write(file.read())
+            user = await User.objects.aget(user_id=user_id)
+            task = await Task.objects.aget(id=task_id, status='1')
 
-            usertask = await sync_to_async(UserTask.objects.filter(
+            usertask = await UserTask.objects.filter(
                 user=user,
                 task=task,
-                status='missed').first)()
+                status='missed').afirst()
             
-            group = await sync_to_async(Groups.objects.get)(id=group_id)
+            group = await Groups.objects.aget(id=group_id)
 
             if usertask:
                 # Обновляем существующий UserTask
                 usertask.status = 'pending'
                 usertask.screenshot = file_name
                 usertask.group = group
-                await sync_to_async(usertask.save)()
+                await usertask.asave()
             else:
                 # Создаем новый UserTask
-                await sync_to_async(UserTask.objects.create)(
+                await UserTask.objects.acreate(
                     user=user,
                     task=task,
                     status='pending',

@@ -13,7 +13,7 @@ def examples_upload_path(instance, filename):
 
 class User(models.Model):
     user_id = models.BigIntegerField(primary_key=True)
-    username = models.CharField(max_length=255, null=True, blank=True)
+    username = models.CharField(max_length=255, null=True, blank=True, db_index=True)
     avatar = models.BooleanField(default=False)
     balance = models.FloatField(default=0.0)
 
@@ -21,11 +21,11 @@ class User(models.Model):
         return self.username
 
 class Channels(models.Model):
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=200, db_index=True)
 
 class Groups(models.Model):
-    name = models.CharField(max_length=200)
-    chat_id = models.IntegerField()
+    name = models.CharField(max_length=200, db_index=True)
+    chat_id = models.IntegerField(db_index=True)
 
     def __str__(self):
         return self.name[:50]+'...'
@@ -47,6 +47,7 @@ class Task(models.Model):
         max_length=1,
         choices=STATUS_CHOISE,
         default=1,
+        db_index=True
     )
     required_subscriptions = models.IntegerField(blank=True, null=True)
     reward = models.FloatField()
@@ -54,7 +55,7 @@ class Task(models.Model):
     groups = models.ManyToManyField(Groups, blank=True)
     example = models.ImageField(upload_to=examples_upload_path)
     start_time = models.DateTimeField(auto_now_add=True)
-    end_time = models.DateTimeField(null=True, blank=True)
+    end_time = models.DateTimeField(null=True, blank=True, db_index=True)
     reminder_start_time = models.DateTimeField(null=True, blank=True)  # Время начала рассылки
     reminder_end_time = models.DateTimeField(null=True, blank=True) 
 
@@ -74,7 +75,7 @@ class UserTask(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=STATUS_CHOISE, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOISE, default='pending', db_index=True)
     screenshot = models.ImageField(upload_to=confirmation_upload_path, null=True, blank=True)
     feedback = models.CharField(max_length=255, null=True, blank=True)
     group = models.ForeignKey(Groups, on_delete=models.CASCADE, blank=True, null=True)
@@ -83,7 +84,7 @@ class UserTask(models.Model):
         return f"{self.user.username} - {self.task.name}"
 
 class Payout(models.Model):
-    date = models.DateTimeField(auto_now_add=True)  # Дата выплаты
+    date = models.DateTimeField(auto_now_add=True, db_index=True)  # Дата выплаты
     is_paid = models.BooleanField(default=False)  # Флаг, указывающий, была ли выплата произведена
 
     def __str__(self):
@@ -100,7 +101,7 @@ class Transaction(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='users')
     amount = models.FloatField()
-    type = models.CharField(max_length=20, choices=TYPE_CHOISE) 
+    type = models.CharField(max_length=20, choices=TYPE_CHOISE, db_index=True) 
     comment = models.CharField(max_length=200)
     timestamp = models.DateTimeField(auto_now_add=True)
     payout_id = models.ForeignKey(Payout, on_delete=models.CASCADE, related_name='payout', null=True, blank=True, default=None)
@@ -111,7 +112,7 @@ class Transaction(models.Model):
 
 
 class Folder(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True, db_index=True)
 
     def __str__(self):
         return self.name

@@ -49,9 +49,9 @@ urlpatterns = [
 
     path('groups/', GroupListView.as_view(), name='group_list'),
     path('groups/create/', CreateGroupView.as_view(), name='create_group'),
-    path('groups/<int:channel_id>/', GroupDetailView.as_view(), name='group_detail'),
-    path('groups/<int:channel_id>/edit/', EditGroupView.as_view(), name='edit_group'),
-    path('groups/<int:channel_id>/delete/', DeleteGroupView.as_view(), name='delete_group'),
+    path('groups/<int:group_id>/', GroupDetailView.as_view(), name='group_detail'),
+    path('groups/<int:group_id>/edit/', EditGroupView.as_view(), name='edit_group'),
+    path('groups/<int:group_id>/delete/', DeleteGroupView.as_view(), name='delete_group'),
 
 
     #folders

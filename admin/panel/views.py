@@ -11,7 +11,7 @@ from channels.layers import get_channel_layer
 from django.db.models import Count, Q, Sum, ExpressionWrapper, FloatField
 from django.db.models.functions import Coalesce
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -87,9 +87,9 @@ async def send_websocket_notification(chat_id, message_text):
 
 class IndexPageView(AsyncLoginRequiredMixin, View):
     async def get(self, request, *args, **kwargs):
-        active_tasks = await sync_to_async(Task.objects.filter(status=1).count)()
-        archived_tasks = await sync_to_async(Task.objects.filter(status=0).count)()
-        total_users = await sync_to_async(User.objects.count)()
+        active_tasks = await Task.objects.filter(status=1).acount()
+        archived_tasks = await Task.objects.filter(status=0).acount()
+        total_users = await User.objects.acount()
         context = {
             'active_tasks': active_tasks,
             'archived_tasks': archived_tasks,
@@ -122,7 +122,7 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
 
         # Получаем объект канала
         try:
-            channel = await sync_to_async(Channels.objects.get)(id=data['channel'])
+            channel = await Channels.objects.aget(id=data['channel'])
         except Channels.DoesNotExist:
             return await sync_to_async(render)(
                 request,
@@ -134,7 +134,7 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
         total_required_subscriptions = 0
         required_subscriptions_list = []
         for group in data['groups']:
-            db_group = await sync_to_async(Groups.objects.get)(id=group)
+            db_group = await Groups.objects.aget(id=group)
             required_subscriptions = await get_channel_members_count(db_group.chat_id)
             required_subscriptions = ast.literal_eval(required_subscriptions)
             total_required_subscriptions += len(required_subscriptions)
@@ -172,7 +172,7 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
         if 'reward' not in task_data or task_data['reward'] is None:
             task_data['reward'] = 30
 
-        task = await sync_to_async(Task.objects.create)(
+        task = await Task.objects.acreate(
             id=task_data.get('id'),  # Используем указанный ID или None (автогенерация)
             name=task_data['name'],
             link=task_data['link'],
@@ -204,7 +204,7 @@ class CreateTaskView(AsyncLoginRequiredMixin, View):
         ]
 
         # Используем bulk_create для создания всех записей за один запрос
-        await sync_to_async(UserTask.objects.bulk_create)(user_tasks)
+        await UserTask.objects.abulk_create(user_tasks)
 
         # Перенаправляем на страницу списка заданий
         return redirect('panel:task_list')
@@ -222,18 +222,17 @@ class TaskListView(AsyncLoginRequiredMixin, View):
                 pending_count=Count('usertask', filter=Q(usertask__status='pending')),
             )
         )
-        for task in tasks:
-            print(task.completed_count, task.id)
+
         
 
         # Подсчет общего количества активных заданий
-        active_tasks_count = await sync_to_async(Task.objects.filter(status='1').count)()
+        active_tasks_count = await Task.objects.filter(status='1').acount()
 
         # Подсчет общего количества архивных заданий
-        archived_tasks_count = await sync_to_async(Task.objects.filter(status='0').count)()
+        archived_tasks_count = await Task.objects.filter(status='0').acount()
 
         # Подсчет общего количества заданий
-        total_tasks_count = await sync_to_async(Task.objects.count)()
+        total_tasks_count = await Task.objects.acount()
 
         # Подготовка контекста для шаблона
         context = {
@@ -250,12 +249,25 @@ class TaskListView(AsyncLoginRequiredMixin, View):
 
 class TaskDetailView(AsyncLoginRequiredMixin, View):
     async def get(self, request, task_id):
-        task = await sync_to_async(get_object_or_404)(Task, id=task_id)
+        try:
+            task = await Task.objects.aget(id=task_id)
+        except Task.DoesNotExist:
+            raise Http404("Task not found")
 
-        completed_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='approved'))
-        pending_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='pending'))
-        rejected_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='rejected'))
-        missed_tasks = await sync_to_async(list)(UserTask.objects.filter(task=task, status='missed', task__status='0'))
+        all_tasks = await sync_to_async(list)(
+            UserTask.objects.filter(
+                Q(status='approved') | Q(status='pending') | Q(status='rejected') | Q(status='missed'),
+                task=task,
+                task__status='0'
+            )
+        )
+
+        # Разделяем задачи по статусам
+        completed_tasks = [t for t in all_tasks if t.status == 'approved']
+        pending_tasks = [t for t in all_tasks if t.status == 'pending']
+        rejected_tasks = [t for t in all_tasks if t.status == 'rejected']
+        missed_tasks = [t for t in all_tasks if t.status == 'missed']
+
         all_groups = await sync_to_async(list)(Groups.objects.all())
 
         context = {
@@ -273,7 +285,11 @@ class TaskDetailView(AsyncLoginRequiredMixin, View):
 class EditTaskView(AsyncLoginRequiredMixin, View):
     async def post(self, request, task_id):
         # Получаем задачу
-        task = await sync_to_async(get_object_or_404)(Task, id=task_id)
+        try:
+            task = await Task.objects.aget(id=task_id)
+        except Task.DoesNotExist:
+            raise Http404()
+        
 
         # Обновляем основные данные задания
         task.name = request.POST.get('name')
@@ -285,7 +301,7 @@ class EditTaskView(AsyncLoginRequiredMixin, View):
         task.reminder_end_time = request.POST.get('reminder_end_time')
 
         # Сохраняем изменения в задаче
-        await sync_to_async(task.save)()
+        await task.asave()
 
         # Обновляем список групп
         group_ids = request.POST.getlist('groups')  # Получаем список ID выбранных групп
@@ -297,22 +313,28 @@ class EditTaskView(AsyncLoginRequiredMixin, View):
 
 class CompleteTaskView(AsyncLoginRequiredMixin, View):
     async def get(self, request, task_id):
-        task = await sync_to_async(get_object_or_404)(Task, id=task_id)
+        try: 
+            task = await Task.objects.get(id=task_id)
+        except Task.DoesNotExist:
+            raise Http404()
 
         # Меняем статус задания на "архив"
         task.status = '0'
         task.end_time = timezone.now()
-        await sync_to_async(task.save)()
+        await task.asave()
 
         return redirect('panel:task_detail', task_id=task.id)
 
 
 class DeleteTaskView(AsyncLoginRequiredMixin, View):
     async def get(self, request, task_id):
-        task = await sync_to_async(get_object_or_404)(Task, id=task_id)
+        try: 
+            task = await Task.objects.get(id=task_id)
+        except Task.DoesNotExist:
+            raise Http404()
 
         # Удаляем задание
-        await sync_to_async(task.delete)()
+        await task.adelete()
         return redirect('panel:task_list')
 
 
@@ -337,9 +359,16 @@ class CheckTaskView(AsyncLoginRequiredMixin, View):
 
 class CheckTaskDetailView(AsyncLoginRequiredMixin, View):
     async def get(self, request, task_id):
+
+        try: 
+            task_data = await UserTask.objects.aget(id=task_id)
+        except UserTask.DoesNotExist:
+            raise Http404()
+        
         context = {}
-        task_data = await sync_to_async(get_object_or_404)(UserTask, id=task_id)
+
         context['task_data'] = task_data
+        
         return await sync_to_async(render)(request, 'admin_panel/review_task.html', context)
     
     async def post(self, request, task_id):
@@ -347,20 +376,23 @@ class CheckTaskDetailView(AsyncLoginRequiredMixin, View):
         feedback = request.POST.get('feedback')
 
         # Получаем задачу асинхронно
-        task = await sync_to_async(get_object_or_404)(UserTask, id=task_id)
+        try: 
+            task = await UserTask.objects.select_related('user', 'task').aget(id=task_id)
+        except UserTask.DoesNotExist:
+            raise Http404()
 
         # Обновляем статус и обратную связь
         task.status = status
         task.feedback = feedback
-        user = await sync_to_async(lambda: task.user)()
-        task_obj = await sync_to_async(lambda: task.task)()
-        await sync_to_async(task.save)()
+        user = task.user
+        task_obj = task.task
+        await task.asave()
         if status == 'approved':
             reward = task_obj.reward
             # Получаем пользователя асинхронно
             user.balance = user.balance + reward
-            await sync_to_async(user.save)()
-            await sync_to_async(Transaction.objects.create)(
+            await user.asave()
+            await Transaction.objects.acreate(
                 user=user,
                 amount=reward,
                 type='completed_task',
@@ -389,7 +421,10 @@ class CheckTaskDetailView(AsyncLoginRequiredMixin, View):
 
 class UserTaskDetailView(AsyncLoginRequiredMixin, View):
     async def get(self, request, user_task_id):
-        task_data = await sync_to_async(get_object_or_404)(UserTask, id=user_task_id)
+        try:
+            task_data = await UserTask.objects.aget(id=user_task_id)
+        except UserTask.DoesNotExist:
+            return Http404()
 
         context = {
             'task_data': task_data,
@@ -436,17 +471,20 @@ class DeleteUserView(AsyncLoginRequiredMixin, View):
         
         if user_id:
             # Получаем пользователя по ID
-            user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
+            try:
+                user = await User.objects.aget(user_id=user_id)
+            except User.DoesNotExist:
+                raise Http404()
             
             # Удаляем все связанные данные пользователя
-            await sync_to_async(UserTask.objects.filter(user=user).delete)()
-            await sync_to_async(Transaction.objects.filter(user=user).delete)()
-            await sync_to_async(Referral.objects.filter(referrer=user).delete)()
-            await sync_to_async(Referral.objects.filter(referred=user).delete)()
-            await sync_to_async(FolderUser.objects.filter(user=user).delete)()
+            await UserTask.objects.filter(user=user).adelete()
+            await Transaction.objects.filter(user=user).adelete()
+            await Referral.objects.filter(referrer=user).adelete()
+            await Referral.objects.filter(referred=user).adelete()
+            await FolderUser.objects.filter(user=user).adelete()
             
             # Удаляем самого пользователя
-            await sync_to_async(user.delete)()
+            await user.adelete()
             
             # Перенаправляем на страницу списка пользователей
             return redirect('panel:user_list')
@@ -469,7 +507,11 @@ class AddTaskView(AsyncLoginRequiredMixin, View):
         channel_name = request.POST.get('channel_name')
         channel_link = request.POST.get('channel_link')
         reward = request.POST.get('reward')
-        await sync_to_async(Task.objects.create)(channel_name=channel_name, channel_link=channel_link, reward=reward)
+        await Task.objects.acreate(
+            channel_name=channel_name, 
+            channel_link=channel_link, 
+            reward=reward
+        )
         return redirect('task_list')
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -480,7 +522,10 @@ class AddUserView(AsyncLoginRequiredMixin, View):
     async def post(self, request):
         user_id = request.POST.get('user_id')
         username = request.POST.get('username')
-        await sync_to_async(User.objects.create)(user_id=user_id, username=username)
+        await User.objects.acreate(
+            user_id=user_id, 
+            username=username
+        )
         return redirect('user_list')
     
 
@@ -488,12 +533,16 @@ class AddUserView(AsyncLoginRequiredMixin, View):
 class UserDetailView(AsyncLoginRequiredMixin, View):
     async def get(self, request, user_id):
         # Получаем пользователя и его задания
-        user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
+        try:
+            user = await User.objects.aget(user_id=user_id)
+        except User.DoesNotExist:
+            raise Http404()
+
         user_tasks = await sync_to_async(list)(UserTask.objects.filter(user=user).prefetch_related('task'))
 
         # Получаем информацию о пригласившем пользователе
-        referrer = await sync_to_async(Referral.objects.filter(referred=user).first)()
-        referrer_username = await sync_to_async(lambda: referrer.referrer)() if referrer else None
+        referrer = await Referral.objects.select_related('referrer').filter(referred=user).afirst()
+        referrer_username = referrer.referrer if referrer else None
 
         # Получаем список рефералов пользователя
         referrals = await sync_to_async(list)(Referral.objects.filter(referrer=user).select_related('referred'))
@@ -528,16 +577,20 @@ class UserDetailView(AsyncLoginRequiredMixin, View):
 
 class AddFundsView(AsyncLoginRequiredMixin, View):
     async def post(self, request, user_id):
-        user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
+        try:
+            user = await User.objects.aget(user_id=user_id)
+        except User.DoesNotExist:
+            raise Http404()
+
         amount = float(request.POST.get('amount'))
         comment = request.POST.get('comment')
 
         # Начисляем деньги
         user.balance += amount
-        await sync_to_async(user.save)()
+        await user.asave()
 
         # Логируем транзакцию
-        await sync_to_async(Transaction.objects.create)(
+        await Transaction.objects.acreate(
             user=user,
             amount=amount,
             type='manual_crediting',
@@ -557,17 +610,22 @@ class AddFundsView(AsyncLoginRequiredMixin, View):
 class ApproveTaskView(AsyncLoginRequiredMixin, View):
     async def post(self, request, user_id):
         task_id = request.POST.get('task')
-        task = await sync_to_async(get_object_or_404)(Task, id=task_id)
-        user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
 
-        usertask = await sync_to_async(UserTask.objects.filter(user=user, task=task).first)()
+        try:
+            task = await Task.objects.aget(id=task_id)
+            user = await User.objects.aget(user_id=user_id)
+        except (Task.DoesNotExist, User.DoesNotExist):
+            raise Http404()
+
+
+        usertask = await UserTask.objects.filter(user=user, task=task).afirst()
 
         if usertask:
             usertask.status = 'approved'
             usertask.feedback = 'Ручное засчитывание задания'
-            await sync_to_async(usertask.save)()
+            await usertask.asave()
         else:
-            await sync_to_async(UserTask.objects.create)(
+            await UserTask.objects.acreate(
                 status='approved',
                 feedback='Ручное засчитывание задания',
                 user=user,
@@ -575,10 +633,10 @@ class ApproveTaskView(AsyncLoginRequiredMixin, View):
             )
 
         user.balance += task.reward
-        await sync_to_async(user.save)()
+        await user.asave()
 
         # Логируем транзакцию
-        await sync_to_async(Transaction.objects.create)(
+        await Transaction.objects.acreate(
             user=user,
             amount=task.reward,
             type='completed_task',
@@ -606,7 +664,7 @@ class CreateChannelView(AsyncLoginRequiredMixin, View):
     async def post(self, request):
         name = request.POST.get('name')
 
-        await sync_to_async(Channels.objects.create)(name=name)
+        await Channels.objects.acreate(name=name)
         
         return redirect('panel:channel_list')
 
@@ -619,23 +677,36 @@ class ChannelListView(AsyncLoginRequiredMixin, View):
 
 class ChannelDetailView(AsyncLoginRequiredMixin, View):
     async def get(self, request, channel_id):
-        channel = await sync_to_async(get_object_or_404)(Channels, id=channel_id)
+        try: 
+            channel = await Channels.objects.aget(id=channel_id)
+        except Channels.DoesNotExist:
+            raise Http404()
+
         return await sync_to_async(render)(request, 'admin_panel/channel_detail.html', {'channel': channel})
     
     async def post(self, request, channel_id):
         name = request.POST.get('channel_name')
-        channel = await sync_to_async(get_object_or_404)(Channels, id=channel_id)
+
+        try: 
+            channel = await Channels.objects.aget(id=channel_id)
+        except Channels.DoesNotExist:
+            raise Http404()
+
         channel.name = name
-        await sync_to_async(channel.save)()
+        await channel.asave()
         return redirect('panel:channel_detail', channel_id=channel_id)
     
 
 class DeleteChannelView(AsyncLoginRequiredMixin, View):
     async def post(self, request, channel_id):
-        channel = await sync_to_async(get_object_or_404)(Channels, id=channel_id)
-        tasks = await sync_to_async(UserTask.objects.filter(status='pending', task__channel=channel).count)()
+        try: 
+            channel = await Channels.objects.aget(id=channel_id)
+        except Channels.DoesNotExist:
+            raise Http404()
+
+        tasks = await UserTask.objects.filter(status='pending', task__channel=channel).acount()
         if tasks == 0:
-            await sync_to_async(channel.delete)()
+            await channel.adelete()
             return redirect('panel:channel_list')
         else:
             return redirect('panel:channel_detail', channel_id=channel_id)
@@ -660,30 +731,41 @@ class CreateGroupView(AsyncLoginRequiredMixin, View):
         chat_id = request.POST.get('chat_id')
 
         # Создаем группа
-        await sync_to_async(Groups.objects.create)(name=name, chat_id=chat_id)
+        await Groups.objects.acreate(name=name, chat_id=chat_id)
         return redirect('panel:group_list')
 
 class GroupDetailView(AsyncLoginRequiredMixin, View):
-    async def get(self, request, channel_id):
-        group = await sync_to_async(get_object_or_404)(Groups, id=channel_id)
+    async def get(self, request, group_id):
+        try:
+            group = await Groups.objects.aget(id=group_id)
+        except Groups.DoesNotExist:
+            raise Http404()
+        
         return await sync_to_async(render)(request, 'admin_panel/ group_detail.html', {'group': group})
 
 class EditGroupView(AsyncLoginRequiredMixin, View):
-    async def post(self, request, channel_id):
-        group = await sync_to_async(get_object_or_404)(Groups, id=channel_id)
+    async def post(self, request, group_id):
+        try:
+            group = await Groups.objects.aget(id=group_id)
+        except Groups.DoesNotExist:
+            raise Http404()
 
         # Обновляем данные канала
         group.name = request.POST.get('name')
         group.chat_id = request.POST.get('chat_id')
-        await sync_to_async(group.save)()
-        return redirect('panel:group_detail', channel_id=group.id)
+        await group.asave()
+        return redirect('panel:group_detail', group_id=group.id)
 
 class DeleteGroupView(AsyncLoginRequiredMixin, View):
-    async def get(self, request, channel_id):
-        group = await sync_to_async(get_object_or_404)(Groups, id=channel_id)
-        usertask = await sync_to_async(UserTask.objects.filter(task__channels=group, status='pending').count)()
+    async def get(self, request, group_id):
+        try:
+            group = await Groups.objects.aget(id=group_id)
+        except Groups.DoesNotExist:
+            raise Http404()
+        
+        usertask = await UserTask.objects.filter(task__groups=group, status='pending').acount()
         if usertask == 0:
-            await sync_to_async(group.delete)()
+            await group.adelete()
         return redirect('panel:group_list')
     
 
@@ -698,7 +780,7 @@ class UserGroupStatisticsView(AsyncLoginRequiredMixin, View):
         selected_group_id = request.GET.get('group_id')
         selected_group = None
         if selected_group_id:
-            selected_group = await sync_to_async(Groups.objects.get)(id=selected_group_id)
+            selected_group = await Groups.objects.aget(id=selected_group_id)
 
         # Получаем список всех пользователей
         users = await sync_to_async(list)(User.objects.all())
@@ -720,9 +802,7 @@ class UserGroupStatisticsView(AsyncLoginRequiredMixin, View):
             total_tasks = len(user_tasks)
 
             # Считаем количество пропущенных задач
-            total_missed = await sync_to_async(
-                UserTask.objects.filter(user=user, status='missed').count
-            )()
+            total_missed = await UserTask.objects.filter(user=user, status='missed').acount()
 
             # Считаем процент выполнения задач
             if total_tasks > 0:
@@ -764,7 +844,6 @@ class UserGroupStatisticsView(AsyncLoginRequiredMixin, View):
             'users': user_stats,
             'selected_group': selected_group,
         }
-        print(context)
 
         return await sync_to_async(render)(request, 'admin_panel/user_group_statistics.html', context)
 
@@ -801,7 +880,11 @@ class FolderCreateView(AsyncLoginRequiredMixin, View):
 
 class FolderDetailView(AsyncLoginRequiredMixin, View):
     async def get(self, request, folder_id):
-        folder = await sync_to_async(get_object_or_404)(Folder, id=folder_id)
+        try: 
+            folder = await Folder.objects.aget(id=folder_id)
+        except Folder.DoesNotExist:
+            raise Http404()
+
         users_in_folder = await sync_to_async(list)(folder.folder_users.all())
         
         # Получаем пользователей, которые не находятся ни в одной папке
@@ -817,45 +900,68 @@ class FolderDetailView(AsyncLoginRequiredMixin, View):
         return await sync_to_async(render)(request, 'admin_panel/folder_detail.html', context)
 
     async def post(self, request, folder_id):
-        folder = await sync_to_async(get_object_or_404)(Folder, id=folder_id)
+        try: 
+            folder = await Folder.objects.aget(id=folder_id)
+        except Folder.DoesNotExist:
+            raise Http404()
+        
         user_ids = request.POST.getlist('users')  # Получаем список выбранных пользователей
         
         for user_id in user_ids:
-            user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
+            try:
+                user = await User.objects.aget(user_id=user_id)
+            except User.DoesNotExist:
+                raise Http404()
             
             # Проверяем, что пользователь не находится ни в одной папке
-            if not await sync_to_async(FolderUser.objects.filter(user=user).exists)():
-                await sync_to_async(FolderUser.objects.create)(folder=folder, user=user)
+            if not await FolderUser.objects.filter(user=user).aexists():
+                await FolderUser.objects.acreate(folder=folder, user=user)
         
         return redirect('panel:folder_detail', folder_id=folder.id)
 
 
 class FolderRemoveUsersView(AsyncLoginRequiredMixin, View):
     async def post(self, request, folder_id):
-        folder = await sync_to_async(get_object_or_404)(Folder, id=folder_id)
+        try: 
+            folder = await Folder.objects.aget(id=folder_id)
+        except Folder.DoesNotExist:
+            raise Http404()
+        
         user_ids = request.POST.getlist('users')  # Получаем список выбранных пользователей
         for user_id in user_ids:
-            user = await sync_to_async(get_object_or_404)(User, user_id=user_id)
-            await sync_to_async(FolderUser.objects.filter(folder=folder, user=user).delete)()
+            try:
+                user = await User.objects.aget(user_id=user_id)
+            except User.DoesNotExist:
+                raise Http404()
+            
+            await FolderUser.objects.filter(folder=folder, user=user).adelete()
         return redirect('panel:folder_detail', folder_id=folder.id)
     
 
 
 class FolderDeleteView(AsyncLoginRequiredMixin, View):
     async def get(self, request, folder_id):
-        folder = await sync_to_async(get_object_or_404)(Folder, id=folder_id)
+        try: 
+            folder = await Folder.objects.aget(id=folder_id)
+        except Folder.DoesNotExist:
+            raise Http404()
+        
         return await sync_to_async(render)(request, 'admin_panel/folder_confirm_delete.html', {'folder': folder})
 
     async def post(self, request, folder_id):
-        folder = await sync_to_async(get_object_or_404)(Folder, id=folder_id)
-        await sync_to_async(folder.delete)()
+        try: 
+            folder = await Folder.objects.aget(id=folder_id)
+        except Folder.DoesNotExist:
+            raise Http404()
+        
+        await folder.adelete()
         return redirect('panel:folder_list')
     
 
 class PayoutView(AsyncLoginRequiredMixin, View):
     async def get(self, request):
         # Получаем все транзакции
-        transactions = await sync_to_async(list)(Transaction.objects.all())
+        transactions = await sync_to_async(list)(Transaction.objects.select_related('payout_id').all())
 
         # Получаем список всех каналов
         channels = await sync_to_async(list)(Channels.objects.all())
@@ -878,14 +984,14 @@ class PayoutView(AsyncLoginRequiredMixin, View):
         for channel_name in channels_dict:
             for task in channels_dict[channel_name]:
                 for transaction in transactions:
-                    if (transaction.comment.endswith(f' {task.id}')) and (await sync_to_async(lambda: transaction.payout_id)() is None):
+                    if (transaction.comment.endswith(f' {task.id}')) and (transaction.payout_id is None):
                         if channel_name not in channels_total:
                             channels_total[channel_name] = 1
                         else:
                             channels_total[channel_name] += 1
 
         # Получаем список всех рефералов
-        all_ref = await sync_to_async(list)(Referral.objects.all())
+        all_ref = await sync_to_async(list)(Referral.objects.select_related('referrer', 'referred').all())
 
         # Получаем список всех папок
         folders = await sync_to_async(list)(Folder.objects.all())
@@ -908,12 +1014,12 @@ class PayoutView(AsyncLoginRequiredMixin, View):
 
             # Добавляем реферальные бонусы к балансу пользователей
             for ref_user in all_ref:
-                referrer = await sync_to_async(lambda: ref_user.referrer)()
+                referrer = ref_user.referrer
                 for f_user in folder_users:
                     if f_user.total_balance is None:
                         f_user.total_balance = 0.0
                     if referrer == f_user:
-                        referred_user = await sync_to_async(lambda: ref_user.referred)()
+                        referred_user = ref_user.referred
                         f_user.total_balance += (referred_user.balance * 0.10)
                         f_user.balance += (referred_user.balance * 0.10)
 
@@ -949,7 +1055,7 @@ class ExportPayoutsToExcelView(AsyncLoginRequiredMixin, View):
         ws_channels.append(["Название канала", "Принятых скринов"])
         
         # Получаем данные для статистики по каналам
-        transactions = await sync_to_async(list)(Transaction.objects.all())
+        transactions = await sync_to_async(list)(Transaction.objects.select_related('payout_id').all())
         channels = await sync_to_async(list)(Channels.objects.all())
         channels_with_tasks = await sync_to_async(list)(
             Channels.objects.annotate(
@@ -966,7 +1072,7 @@ class ExportPayoutsToExcelView(AsyncLoginRequiredMixin, View):
         for channel_name in channels_dict:
             for task in channels_dict[channel_name]:
                 for transaction in transactions:
-                    if (transaction.comment.endswith(f' {task.id}')) and (await sync_to_async(lambda: transaction.payout_id)() is None):
+                    if (transaction.comment.endswith(f' {task.id}')) and (transaction.payout_id is None):
                         if channel_name not in channels_total:
                             channels_total[channel_name] = 1
                         else:
@@ -977,7 +1083,7 @@ class ExportPayoutsToExcelView(AsyncLoginRequiredMixin, View):
             ws_channels.append([channel.name, channels_total.get(channel.name, 0)])
 
         # Получаем данные для статистики по папкам
-        all_ref = await sync_to_async(list)(Referral.objects.all())
+        all_ref = await sync_to_async(list)(Referral.objects.select_related('referrer', 'referred').all())
         folders = await sync_to_async(list)(Folder.objects.all())
 
         folder_data = []
@@ -995,12 +1101,12 @@ class ExportPayoutsToExcelView(AsyncLoginRequiredMixin, View):
             )
 
             for ref_user in all_ref:
-                referrer = await sync_to_async(lambda: ref_user.referrer)()
+                referrer = ref_user.referrer
                 for f_user in folder_users:
                     if f_user.total_balance is None:
                         f_user.total_balance = 0.0
                     if referrer == f_user:
-                        referred_user = await sync_to_async(lambda: ref_user.referred)()
+                        referred_user = ref_user.referred
                         f_user.total_balance += (referred_user.balance * 0.10)
                         f_user.balance += (referred_user.balance * 0.10)
 
@@ -1057,19 +1163,19 @@ class ResetBalancesView(AsyncLoginRequiredMixin, View):
         payout = await sync_to_async(Payout.objects.create)(is_paid=True)
 
 
-        all_ref = await sync_to_async(list)(Referral.objects.all())
+        all_ref = await sync_to_async(list)(Referral.objects.select_related('referrer', 'referred').all())
         for ref_user in all_ref:
-            referrer = await sync_to_async(lambda: ref_user.referrer)()
-            referred = await sync_to_async(lambda: ref_user.referred)()
+            referrer = ref_user.referrer
+            referred = ref_user.referred
             reward = referred.balance * 0.10
             referrer.balance += reward
-            await sync_to_async(Transaction.objects.create)(
+            await Transaction.objects.acreate(
                 user=referrer,
                 amount=reward,
                 type='referral_bonus',
                 comment=f'Реферальный бонус за заработок пользователя @{referred.username} (ID: {referred.user_id})'
             )
-            await sync_to_async(referrer.save)()
+            await referrer.asave()
 
         # Получаем всех пользователей
         users = await sync_to_async(list)(User.objects.all())
@@ -1086,7 +1192,7 @@ class ResetBalancesView(AsyncLoginRequiredMixin, View):
 
             completed_tasks = sum(1 for t in transactions if t.type == 'completed_task')
 
-            pending_tasks = await sync_to_async(UserTask.objects.filter(user=user, status='pending').count)()
+            pending_tasks = await UserTask.objects.filter(user=user, status='pending').acount()
 
             # Считаем сумму наград за выполненные задания
             completed_tasks_reward = sum(
@@ -1122,10 +1228,10 @@ class ResetBalancesView(AsyncLoginRequiredMixin, View):
 
             # Обнуляем баланс пользователя
             user.balance = 0.0
-            await sync_to_async(user.save)()
+            await user.asave()
 
             # Логируем транзакцию для обнуления баланса
-            await sync_to_async(Transaction.objects.create)(
+            await Transaction.objects.acreate(
                 user=user,
                 amount=0,
                 type='disbersement',  # Тип транзакции: выплата
@@ -1144,7 +1250,7 @@ class ResetBalancesView(AsyncLoginRequiredMixin, View):
 class SendPayoutInformation(AsyncLoginRequiredMixin, View):
     async def post(self, request):
         # Получаем дату последней выплаты
-        last_payout = await sync_to_async(Payout.objects.order_by('-date').first)()
+        last_payout = await Payout.objects.order_by('-date').afirst()
         last_payout_date = last_payout.date if last_payout else None
 
         # Получаем текущую дату
@@ -1166,7 +1272,7 @@ class SendPayoutInformation(AsyncLoginRequiredMixin, View):
 
             completed_tasks = sum(1 for t in transactions if t.type == 'completed_task')
 
-            pending_tasks = await sync_to_async(UserTask.objects.filter(user=user, status='pending').count)()
+            pending_tasks = await UserTask.objects.filter(user=user, status='pending').acount()
 
             # Считаем сумму наград за выполненные задания
             completed_tasks_reward = sum(
@@ -1180,7 +1286,7 @@ class SendPayoutInformation(AsyncLoginRequiredMixin, View):
                 if transaction.type == 'manual_crediting' and not transaction.payout_id
             )
             
-            refs = await sync_to_async(list)(Referral.objects.filter(referrer=user))
+            refs = await sync_to_async(list)(Referral.objects.select_related('referred').filter(referrer=user))
 
             # Общая сумма к выплате
 
@@ -1199,7 +1305,7 @@ class SendPayoutInformation(AsyncLoginRequiredMixin, View):
             refs_total = 0
             if refs:
                 for ref in refs:
-                    ref_user = await sync_to_async(lambda: ref.referred)()
+                    ref_user = ref.referred
                     reward = ref_user.balance * 0.10
                     refs_total += reward
                     message += f'{m_index}) {reward:.2f} (Реферальный бонус за заработок пользователя @{ref_user.username} (ID: {ref_user.user_id})'
@@ -1242,11 +1348,11 @@ class CreateReferralView(AsyncLoginRequiredMixin, View):
                 referred_id = form.cleaned_data['referred']
 
                 # Получаем объекты пользователей
-                referrer = await sync_to_async(User.objects.get)(user_id=referrer_id)
-                referred = await sync_to_async(User.objects.get)(user_id=referred_id)
+                referrer = await User.objects.aget(user_id=referrer_id)
+                referred = await User.objects.aget(user_id=referred_id)
 
                 # Создаем реферальную связь
-                await sync_to_async(Referral.objects.create)(referrer=referrer, referred=referred)
+                await Referral.objects.acreate(referrer=referrer, referred=referred)
 
                 return redirect('panel:referral_list')  # Перенаправляем на список рефералов
             except ValidationError as e:
@@ -1271,7 +1377,7 @@ class ReferralListView(AsyncLoginRequiredMixin, View):
 class DeleteReferralView(AsyncLoginRequiredMixin, View):
     async def post(self, request, referral_id):
         # Получаем реферальную связь по ID
-        referral = await sync_to_async(Referral.objects.get)(id=referral_id)
+        referral = await Referral.objects.aget(id=referral_id)
         # Удаляем реферальную связь
-        await sync_to_async(referral.delete)()
+        await referral.adelete()
         return redirect('panel:referral_list')
