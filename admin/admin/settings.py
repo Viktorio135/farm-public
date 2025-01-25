@@ -96,8 +96,12 @@ WSGI_APPLICATION = 'admin.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'farm',  # Имя базы данных
+        'USER': 'root',  # Ваша роль (или созданный пользователь)
+        'PASSWORD': 'root',  # Пароль вашей роли
+        'HOST': 'localhost',  # Хост (если БД на локальной машине)
+        'PORT': '5432',  # Порт (по умолчанию 5432)
     }
 }
 

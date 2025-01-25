@@ -25,7 +25,7 @@ class Channels(models.Model):
 
 class Groups(models.Model):
     name = models.CharField(max_length=200, db_index=True)
-    chat_id = models.IntegerField(db_index=True)
+    chat_id = models.BigIntegerField(db_index=True)
 
     def __str__(self):
         return self.name[:50]+'...'
