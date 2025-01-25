@@ -557,7 +557,7 @@ class UserDetailView(AsyncLoginRequiredMixin, View):
             completion_rate = ((len(completed_tasks) + len(rejected_tasks)) / (len(completed_tasks) + len(rejected_tasks) + len(missed_tasks))) * 100
         else:
             completion_rate = 0
-        all_tasks_without_completed = pending_tasks + rejected_tasks + missed_tasks
+        all_tasks_without_completed = pending_tasks + rejected_tasks + [task for task in user_tasks if task.status == 'missed']
 
         # Контекст для шаблона
         context = {
