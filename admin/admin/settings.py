@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-+nlytnz#94ba=&&bb&s_vft3^*&3toz#78y3)hu9js=v2s+6ol'
+SECRET_KEY = ''
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -35,7 +35,7 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],  # Используйте localhost или IP-адрес
+            "hosts": [("127.0.0.1", 6379)],
         },
     },
 }
@@ -97,11 +97,11 @@ WSGI_APPLICATION = 'admin.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'farm',  # Имя базы данных
-        'USER': 'root',  # Ваша роль (или созданный пользователь)
-        'PASSWORD': 'root',  # Пароль вашей роли
-        'HOST': 'localhost',  # Хост (если БД на локальной машине)
-        'PORT': '5432',  # Порт (по умолчанию 5432)
+        'NAME': 'farm',  
+        'USER': 'root',  
+        'PASSWORD': 'root',
+        'HOST': 'localhost',  
+        'PORT': '5432',  
     }
 }
 
@@ -128,7 +128,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ru'
 
 TIME_ZONE = 'Europe/Moscow'
 
@@ -148,7 +148,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     'schedule-unsubscribe-reminders-every-1-minutes': {
         'task': 'panel.tasks.schedule_unsubscribe_reminders',
-        'schedule': crontab(minute='*/1'),  # Запускать каждые 10 минут
+        'schedule': crontab(minute='*/10'),  
     },
 }
 LOGIN_URL = '/login/'
