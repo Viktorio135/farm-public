@@ -3,7 +3,7 @@ from telethon.tl.types import ChannelParticipantAdmin, ChannelParticipantCreator
 
 from config import BOT_TOKEN
 
-client = TelegramClient('session_name', '25224057', '51d4024613e90a911eb0b7d3250fb28b')
+client = TelegramClient('', '', '')
 
 async def get_chat_members(chat_id):
     await client.start(bot_token=BOT_TOKEN)
