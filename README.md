@@ -63,3 +63,12 @@ API вынесен в отдельное приложение **API**. В нем
 - Redis
 - Nginx
 - Daphne
+
+  <img width="1431" alt="image" src="https://github.com/user-attachments/assets/d6eb0c85-8d4d-48bb-a823-e5289aa84743" />
+  <img width="1351" alt="image" src="https://github.com/user-attachments/assets/96b94971-4ab6-49c2-98e1-ddc80029dd38" />
+  <img width="427" alt="image" src="https://github.com/user-attachments/assets/e2c6a12c-1607-4fe3-84f9-ff2b63591852" />
+  <img width="1045" alt="image" src="https://github.com/user-attachments/assets/e2fb49e4-3a2b-4945-a24e-0d75aebf3a80" />
+
+
+
+
